@@ -2,14 +2,14 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
-import Layout from "./ui/Layout.jsx";
+import Layout from "./components/Layout.jsx";
 import Home from "./pages/Home.jsx";
 import Portfolio from "./pages/Portfolio.jsx";
 import Events from "./pages/Events.jsx";
 import Bio from "./pages/Bio.jsx";
 import Contact from "./pages/Contact.jsx";
 import AdminLogin from "./pages/admin/AdminLogin.jsx";
-import Admin from "./pages/admin/Admin.jsx";
+import Admin from "./pages/admin/AdminLogin.jsx";
 
 const router = createBrowserRouter([
   {
