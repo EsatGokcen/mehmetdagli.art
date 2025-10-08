@@ -31,7 +31,7 @@ app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET)
 app.mount("/media", StaticFiles(directory="app/media"), name="media")
 
 # Create tables
-Base.metadata.create_all(bind=engine)
+#Base.metadata.create_all(bind=engine) # --- HANDLED BY ALEMBIC ---
 
 # Routers
 app.include_router(auth_router)
