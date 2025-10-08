@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, HTTPException, Form
 from app.core.config import settings
-from app.core.security import verify_password, require_admin
+from app.core.security import verify_password, require_admin, issue_csrf_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -13,6 +13,8 @@ async def login(
     if username != settings.ADMIN_USERNAME or not verify_password(password, settings.ADMIN_PASSWORD_HASH):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     request.session["is_admin"] = True
+    # rotate CSRF token on login for good measure
+    issue_csrf_token(request)
     return {"ok": True}
 
 @router.post("/logout")
@@ -24,11 +26,7 @@ async def logout(request: Request, _=Depends(require_admin)):
 async def me(request: Request):
     return {"is_admin": bool(request.session.get("is_admin", False))}
 
-from app.core.config import settings
-
-@router.get("/debug-env")
-def debug_env():
-    return {
-        "username_loaded": settings.ADMIN_USERNAME == "admin",
-        "hash_loaded": bool(settings.ADMIN_PASSWORD_HASH),
-    }
+@router.get("/csrf", dependencies=[Depends(require_admin)])
+async def csrf(request: Request):
+    """Return a fresh CSRF token and store it in the session."""
+    return {"csrf": issue_csrf_token(request)}
