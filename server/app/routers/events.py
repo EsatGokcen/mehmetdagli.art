@@ -19,9 +19,26 @@ def list_events(
     db: Session = Depends(get_db),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    q: str | None = Query(None, description="search title/location/details"),
+    upcoming_only: bool = Query(False, description="only events with end_date >= today (or start_date when end_date is null)"),
 ):
-    q = db.query(Event).order_by(Event.start_date.desc().nullslast(), Event.id.desc())
-    return q.offset(offset).limit(limit).all()
+    query = db.query(Event)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (Event.title.ilike(like)) |
+            (Event.location.ilike(like)) |
+            (Event.details.ilike(like))
+        )
+    if upcoming_only:
+        from datetime import date
+        today = date.today().isoformat()
+        query = query.filter(
+            (Event.end_date == None) | (Event.end_date >= today) | (Event.start_date >= today)
+        )
+    order_clause = Event.start_date.asc().nullslast() if upcoming_only else Event.start_date.desc().nullslast()
+    query = query.order_by(order_clause, Event.id.desc())
+    return query.offset(offset).limit(limit).all()
 
 @router.post(
     "",

@@ -21,10 +21,21 @@ def list_items(
     db: Session = Depends(get_db),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    q: str | None = Query(None, description="search title/medium/description"),
+    available: bool | None = Query(None),
 ):
+    query = db.query(Artwork)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (Artwork.title.ilike(like)) |
+            (Artwork.medium.ilike(like)) |
+            (Artwork.description.ilike(like))
+        )
+    if available is not None:
+        query = query.filter(Artwork.available == available)
     return (
-        db.query(Artwork)
-        .order_by(Artwork.id.desc())
+        query.order_by(Artwork.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
