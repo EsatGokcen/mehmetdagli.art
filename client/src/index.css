@@ -1,1 +1,9 @@
 @import "tailwindcss";
+@plugin "daisyui";
+
+:root {
+  color-scheme: light;
+}
+body {
+  min-height: 100svh;
+}

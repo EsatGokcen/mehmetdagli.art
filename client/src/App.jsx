@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
 import "./index.css"; // use Tailwind's stylesheet, not App.css
 
 function App() {
@@ -18,14 +16,7 @@ function App() {
   return (
     <div className="min-h-screen bg-base-200 flex flex-col items-center justify-center p-8">
       {/* Header */}
-      <div className="flex gap-4 items-center mb-6">
-        <a href="https://vite.dev" target="_blank" rel="noreferrer">
-          <img src={viteLogo} className="h-16 w-16" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank" rel="noreferrer">
-          <img src={reactLogo} className="h-16 w-16" alt="React logo" />
-        </a>
-      </div>
+      <div className="flex gap-4 items-center mb-6"></div>
 
       {/* Card */}
       <div className="card w-96 bg-base-100 shadow-xl">
