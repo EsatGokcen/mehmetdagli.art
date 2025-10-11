@@ -7,7 +7,7 @@ export default function Layout() {
   const { t } = useI18n();
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white">
       <header className="navbar bg-base-100 shadow">
         <div className="flex-1">
           <Link to="/" className="btn btn-ghost text-xl">

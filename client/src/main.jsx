@@ -16,6 +16,7 @@ import AdminLogin from "./pages/admin/AdminLogin.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
+document.documentElement.setAttribute("data-theme", "light");
 const router = createBrowserRouter([
   {
     path: "/",

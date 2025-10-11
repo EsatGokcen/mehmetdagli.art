@@ -7,3 +7,8 @@
 body {
   min-height: 100svh;
 }
+html,
+body,
+#root {
+  background-color: #ffffff !important;
+}
