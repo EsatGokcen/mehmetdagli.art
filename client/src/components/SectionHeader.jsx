@@ -1,10 +1,10 @@
 export default function SectionHeader({ title, subtitle }) {
   return (
-    <div className="mb-6">
-      <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+    <div className="mb-4">
+      <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-neutral-900">
         {title}
-      </h1>
-      {subtitle && <p className="opacity-70 mt-2">{subtitle}</p>}
+      </h2>
+      {subtitle ? <p className="mt-1 text-neutral-500">{subtitle}</p> : null}
     </div>
   );
 }
