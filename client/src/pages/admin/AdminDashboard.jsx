@@ -1,333 +1,730 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import * as api from "../../lib/api";
+import ErrorAlert from "../../components/ErrorAlert.jsx";
+import {
+  API_BASE,
+  refreshCsrf,
+  fetchArtworks,
+  fetchEvents,
+  post,
+  put,
+  del,
+} from "../../lib/api.js";
+
+/* --- UI helpers --- */
+const cls = (...xs) => xs.filter(Boolean).join(" ");
+const Surface = ({ className = "", children }) => (
+  <div
+    className={cls(
+      "rounded-2xl bg-white border border-neutral-200/70",
+      "shadow-[0_6px_20px_rgba(0,0,0,0.10)]",
+      className
+    )}
+  >
+    {children}
+  </div>
+);
 
 export default function AdminDashboard() {
-  const nav = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [artworks, setArtworks] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [msg, setMsg] = useState("");
+  const navigate = useNavigate();
 
-  // forms
+  /* ---------- Create Forms ---------- */
   const [aForm, setAForm] = useState({
     title: "",
     price: "",
-    available: true,
     medium: "",
     description: "",
+    available: true,
+    file: null,
   });
-  const [aImage, setAImage] = useState(null);
+  const [aLoading, setALoading] = useState(false);
+  const [aErr, setAErr] = useState("");
+
   const [eForm, setEForm] = useState({
     title: "",
     location: "",
     start_date: "",
     end_date: "",
     details: "",
-    is_published: true,
+    published: true,
   });
+  const [eLoading, setELoading] = useState(false);
+  const [eErr, setEErr] = useState("");
 
-  function onAChange(e) {
-    const { name, type, value, checked } = e.target;
-    setAForm((s) => ({ ...s, [name]: type === "checkbox" ? checked : value }));
-  }
-  function onEChange(e) {
-    const { name, type, value, checked } = e.target;
-    setEForm((s) => ({ ...s, [name]: type === "checkbox" ? checked : value }));
-  }
+  /* ---------- Lists ---------- */
+  const [artworks, setArtworks] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loadErr, setLoadErr] = useState("");
 
-  async function load() {
-    const list = await api.get("/api/portfolio?offset=0&limit=100");
-    setArtworks(list);
-    const ev = await api.get("/api/events?limit=100");
-    setEvents(ev);
-  }
+  /* ---------- Editing modals ---------- */
+  const [editArtwork, setEditArtwork] = useState(null);
+  const [editEvent, setEditEvent] = useState(null);
+  const closeEdits = () => {
+    setEditArtwork(null);
+    setEditEvent(null);
+  };
+
+  const loadAll = useCallback(async () => {
+    try {
+      setLoadErr("");
+      const [alist, elist] = await Promise.all([
+        fetchArtworks({ offset: 0, limit: 200 }),
+        fetchEvents({ offset: 0, limit: 200 }),
+      ]);
+      setArtworks(Array.isArray(alist) ? alist : []);
+      setEvents(Array.isArray(elist) ? elist : []);
+    } catch (e) {
+      setLoadErr(e.message || "Veriler yüklenemedi.");
+    }
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const me = await api.get("/api/auth/me");
-        if (!me?.is_admin) {
-          nav("/admin/login", { replace: true, state: { from: "/admin" } });
-          return;
-        }
-        await api.refreshCsrf();
-        await load();
-      } catch {
-        nav("/admin/login", { replace: true, state: { from: "/admin" } });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [nav]);
+    loadAll();
+  }, [loadAll]);
 
-  async function createArtwork(e) {
-    e.preventDefault();
-    setMsg("");
+  /* ---------- Handlers ---------- */
+  function onAChange(e) {
+    const { name, value, type, checked, files } = e.target;
+    if (type === "checkbox") setAForm((f) => ({ ...f, [name]: checked }));
+    else if (type === "file")
+      setAForm((f) => ({ ...f, file: files?.[0] || null }));
+    else setAForm((f) => ({ ...f, [name]: value }));
+  }
+  function onEChange(e) {
+    const { name, value, type, checked } = e.target;
+    if (type === "checkbox") setEForm((f) => ({ ...f, [name]: checked }));
+    else setEForm((f) => ({ ...f, [name]: value }));
+  }
+
+  async function createArtwork(ev) {
+    ev.preventDefault();
+    setAErr("");
+    if (!aForm.title.trim()) {
+      setAErr("Lütfen eser başlığını girin.");
+      return;
+    }
     try {
-      const body = {
-        title: aForm.title,
+      setALoading(true);
+      const payload = {
+        title: aForm.title.trim(),
         price: aForm.price ? Number(aForm.price) : null,
+        medium: aForm.medium.trim() || null,
+        description: aForm.description.trim() || null,
         available: !!aForm.available,
-        medium: aForm.medium || null,
-        description: aForm.description || null,
       };
-      const created = await api.post("/api/portfolio", body);
-      if (aImage) {
-        await api.uploadArtworkImage(created.id, aImage);
+      const created = await post("/api/portfolio", payload);
+
+      // optional image upload
+      if (created?.id && aForm.file) {
+        const csrf = await refreshCsrf();
+        const fd = new FormData();
+        fd.append("file", aForm.file);
+        const res = await fetch(
+          `${API_BASE}/api/portfolio/${created.id}/image`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "x-csrf-token": csrf },
+            body: fd,
+          }
+        );
+        if (!res.ok)
+          throw new Error((await res.text()) || "Görsel yüklenemedi.");
       }
+
       setAForm({
         title: "",
         price: "",
-        available: true,
         medium: "",
         description: "",
+        available: true,
+        file: null,
       });
-      setAImage(null);
-      setMsg("Artwork created.");
-      await load();
+      loadAll();
     } catch (err) {
-      setMsg(String(err.message || err));
+      setAErr(err.message || "Eser oluşturulamadı.");
+    } finally {
+      setALoading(false);
     }
   }
 
-  async function deleteArtwork(id) {
-    if (!confirm("Delete this artwork?")) return;
-    await api.del(`/api/portfolio/${id}`);
-    await load();
-  }
-
-  async function createEvent(e) {
-    e.preventDefault();
-    setMsg("");
+  async function createEvent(ev) {
+    ev.preventDefault();
+    setEErr("");
+    if (!eForm.title.trim()) {
+      setEErr("Lütfen etkinlik başlığını girin.");
+      return;
+    }
     try {
-      await api.post("/api/events", eForm);
+      setELoading(true);
+      const payload = {
+        title: eForm.title.trim(),
+        location: eForm.location.trim() || null,
+        start_date: eForm.start_date || null,
+        end_date: eForm.end_date || null,
+        details: eForm.details.trim() || null,
+        published: !!eForm.published,
+      };
+      await post("/api/events", payload);
       setEForm({
         title: "",
         location: "",
         start_date: "",
         end_date: "",
         details: "",
-        is_published: true,
+        published: true,
       });
-      setMsg("Event created.");
-      await load();
+      loadAll();
     } catch (err) {
-      setMsg(String(err.message || err));
-    }
-  }
-
-  async function deleteEvent(id) {
-    if (!confirm("Delete this event?")) return;
-    await api.del(`/api/events/${id}`);
-    await load();
-  }
-
-  async function doLogout() {
-    try {
-      await api.logout();
+      setEErr(err.message || "Etkinlik oluşturulamadı.");
     } finally {
-      nav("/admin/login", { replace: true });
+      setELoading(false);
     }
   }
 
-  if (loading) return <div className="p-6">Loading…</div>;
+  async function removeArtwork(id) {
+    if (!confirm("Bu eseri silmek istediğinize emin misiniz?")) return;
+    try {
+      await del(`/api/portfolio/${id}`);
+      loadAll();
+    } catch (e) {
+      alert(e.message || "Silme işlemi başarısız.");
+    }
+  }
+  async function removeEvent(id) {
+    if (!confirm("Bu etkinliği silmek istediğinize emin misiniz?")) return;
+    try {
+      await del(`/api/events/${id}`);
+      loadAll();
+    } catch (e) {
+      alert(e.message || "Silme işlemi başarısız.");
+    }
+  }
 
+  async function saveEditedArtwork() {
+    try {
+      const payload = {
+        title: editArtwork.title ?? "",
+        description: editArtwork.description ?? null,
+        medium: editArtwork.medium ?? null,
+        price: editArtwork.price ?? null,
+        available: !!editArtwork.available,
+      };
+      await put(`/api/portfolio/${editArtwork.id}`, payload);
+      closeEdits();
+      loadAll();
+    } catch (e) {
+      alert(e.message || "Güncelleme başarısız.");
+    }
+  }
+
+  async function saveEditedEvent() {
+    try {
+      const payload = {
+        title: editEvent.title ?? "",
+        location: editEvent.location ?? null,
+        start_date: editEvent.start_date ?? null,
+        end_date: editEvent.end_date ?? null,
+        details: editEvent.details ?? null,
+        published: !!editEvent.published,
+      };
+      await put(`/api/events/${editEvent.id}`, payload);
+      closeEdits();
+      loadAll();
+    } catch (e) {
+      alert(e.message || "Güncelleme başarısız.");
+    }
+  }
+
+  async function uploadArtworkImage(artworkId, file) {
+    if (!file) return;
+    const csrf = await refreshCsrf();
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_BASE}/api/portfolio/${artworkId}/image`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "x-csrf-token": csrf },
+      body: fd,
+    });
+    if (!res.ok) throw new Error((await res.text()) || "Görsel yüklenemedi.");
+  }
+
+  /* ---------- UI ---------- */
   return (
-    <div className="p-4 space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-        <button className="btn" onClick={doLogout}>
-          Logout
+    <div className="container mx-auto px-4 py-8 md:py-10">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl md:text-3xl font-semibold text-neutral-900">
+          Yönetim Paneli
+        </h1>
+        <button
+          className="btn rounded-full"
+          onClick={() => navigate("/admin/login")}
+        >
+          Çıkış
         </button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <section>
-          <h2 className="text-xl font-semibold mb-3">Add Artwork</h2>
-          <form onSubmit={createArtwork} className="space-y-3">
+      <ErrorAlert message={loadErr} />
+
+      {/* Create forms */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* --------- ESER EKLE --------- */}
+        <Surface className="p-6 md:p-8">
+          <h2 className="text-lg font-semibold text-neutral-900">Eser Ekle</h2>
+          <div className="h-px w-full bg-neutral-200/80 my-3" />
+          <form
+            className="flex flex-col gap-4 min-h-[320px]"
+            onSubmit={createArtwork}
+          >
             <input
-              className="input input-bordered w-full"
               name="title"
-              placeholder="Title"
               value={aForm.title}
               onChange={onAChange}
-              required
-            />
-            <input
               className="input input-bordered w-full"
-              name="price"
-              placeholder="Price"
-              value={aForm.price}
-              onChange={onAChange}
+              type="text"
+              placeholder="Başlık"
             />
-            <input
-              className="input input-bordered w-full"
-              name="medium"
-              placeholder="Medium"
-              value={aForm.medium}
-              onChange={onAChange}
-            />
-            <textarea
-              className="textarea textarea-bordered w-full"
-              name="description"
-              placeholder="Description"
-              value={aForm.description}
-              onChange={onAChange}
-            />
-            <label className="label cursor-pointer justify-start gap-3">
+
+            <div className="grid grid-cols-2 gap-3">
               <input
-                type="checkbox"
-                className="checkbox"
-                name="available"
-                checked={aForm.available}
+                name="price"
+                value={aForm.price}
                 onChange={onAChange}
+                className="input input-bordered w-full"
+                type="number"
+                placeholder="Fiyat"
               />
-              <span className="label-text">Available</span>
-            </label>
+              <input
+                name="medium"
+                value={aForm.medium}
+                onChange={onAChange}
+                className="input input-bordered w-full"
+                type="text"
+                placeholder="Teknik / Malzeme"
+              />
+            </div>
+
+            {/* File input BEFORE description (aligns with Event's date row) */}
             <input
               type="file"
+              accept="image/*"
+              onChange={onAChange}
+              name="file"
               className="file-input file-input-bordered w-full"
-              onChange={(e) => setAImage(e.target.files?.[0] ?? null)}
             />
-            <button className="btn btn-primary">Create</button>
+
+            <textarea
+              name="description"
+              value={aForm.description}
+              onChange={onAChange}
+              className="textarea textarea-bordered w-full min-h-[100px]"
+              placeholder="Açıklama / Detay"
+            />
+
+            {/* Bottom row: Satışta (left) + Oluştur (right) */}
+            <div className="mt-auto flex items-center justify-between gap-4">
+              <label className="label cursor-pointer justify-start gap-3 m-0">
+                <input
+                  type="checkbox"
+                  className="checkbox"
+                  name="available"
+                  checked={aForm.available}
+                  onChange={onAChange}
+                />
+                <span className="label-text">Satışta</span>
+              </label>
+
+              <button
+                className={cls(
+                  "btn rounded-full bg-neutral-900 text-white hover:bg-black",
+                  aLoading && "btn-disabled opacity-70"
+                )}
+                disabled={aLoading}
+                type="submit"
+              >
+                {aLoading ? "Kaydediliyor…" : "Oluştur"}
+              </button>
+            </div>
+
+            <ErrorAlert message={aErr} />
           </form>
+        </Surface>
 
-          <h3 className="text-lg font-semibold mt-8 mb-2">Artworks</h3>
-          <div className="space-y-3">
-            {artworks.map((a) => (
-              <div key={a.id} className="card bg-base-200">
-                <div className="card-body">
-                  <div className="flex items-center gap-3">
-                    <div className="font-medium">{a.title}</div>
-                    <div className="opacity-60 text-sm">#{a.id}</div>
-                  </div>
-                  <div className="text-sm opacity-70">{a.medium || "—"}</div>
-                  <div className="flex items-center gap-3">
-                    <span>{a.price != null ? `£${a.price}` : "—"}</span>
-                    <span
-                      className={`badge ${a.available ? "badge-success" : ""}`}
-                    >
-                      {a.available ? "Available" : "Not available"}
-                    </span>
-                  </div>
-                  <div className="card-actions justify-end">
-                    <button
-                      className="btn btn-outline btn-error"
-                      onClick={() => deleteArtwork(a.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {artworks.length === 0 && (
-              <div className="opacity-70 text-sm">No artworks yet.</div>
-            )}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="text-xl font-semibold mb-3">Add Event</h2>
-          <form onSubmit={createEvent} className="space-y-3">
+        {/* --------- ETKİNLİK EKLE --------- */}
+        <Surface className="p-6 md:p-8">
+          <h2 className="text-lg font-semibold text-neutral-900">
+            Etkinlik Ekle
+          </h2>
+          <div className="h-px w-full bg-neutral-200/80 my-3" />
+          <form
+            className="flex flex-col gap-4 min-h-[320px]"
+            onSubmit={createEvent}
+          >
             <input
-              className="input input-bordered w-full"
               name="title"
-              placeholder="Title"
               value={eForm.title}
               onChange={onEChange}
-              required
+              className="input input-bordered w-full"
+              type="text"
+              placeholder="Başlık"
             />
             <input
-              className="input input-bordered w-full"
               name="location"
-              placeholder="Location"
               value={eForm.location}
               onChange={onEChange}
+              className="input input-bordered w-full"
+              type="text"
+              placeholder="Mekan"
             />
             <div className="grid grid-cols-2 gap-3">
-              <label className="form-control">
-                <div className="label">
-                  <span className="label-text">Start date</span>
-                </div>
-                <input
-                  type="date"
-                  className="input input-bordered"
-                  name="start_date"
-                  value={eForm.start_date}
-                  onChange={onEChange}
-                  required
-                />
-              </label>
-              <label className="form-control">
-                <div className="label">
-                  <span className="label-text">End date</span>
-                </div>
-                <input
-                  type="date"
-                  className="input input-bordered"
-                  name="end_date"
-                  value={eForm.end_date}
-                  onChange={onEChange}
-                />
-              </label>
+              <input
+                name="start_date"
+                value={eForm.start_date}
+                onChange={onEChange}
+                className="input input-bordered w-full"
+                type="date"
+                placeholder="Başlangıç"
+              />
+              <input
+                name="end_date"
+                value={eForm.end_date}
+                onChange={onEChange}
+                className="input input-bordered w-full"
+                type="date"
+                placeholder="Bitiş"
+              />
             </div>
             <textarea
-              className="textarea textarea-bordered w-full"
               name="details"
-              placeholder="Details"
               value={eForm.details}
               onChange={onEChange}
+              className="textarea textarea-bordered w-full min-h-[100px]"
+              placeholder="Açıklama / Detay"
             />
-            <label className="label cursor-pointer justify-start gap-3">
-              <input
-                type="checkbox"
-                className="checkbox"
-                name="is_published"
-                checked={eForm.is_published}
-                onChange={onEChange}
-              />
-              <span className="label-text">Published</span>
-            </label>
-            <button className="btn btn-primary">Create</button>
-          </form>
 
-          <h3 className="text-lg font-semibold mt-8 mb-2">Events</h3>
-          <div className="space-y-3">
-            {events.map((ev) => (
-              <div key={ev.id} className="card bg-base-200">
-                <div className="card-body">
-                  <div className="flex items-center gap-3">
-                    <div className="font-medium">{ev.title}</div>
-                    <div className="opacity-60 text-sm">#{ev.id}</div>
-                  </div>
-                  <div className="text-sm opacity-70">{ev.location || "—"}</div>
-                  <div className="text-sm">
-                    {ev.start_date}
-                    {ev.end_date ? ` → ${ev.end_date}` : ""}
-                  </div>
-                  <div className="card-actions justify-end">
-                    <button
-                      className="btn btn-outline btn-error"
-                      onClick={() => deleteEvent(ev.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {events.length === 0 && (
-              <div className="opacity-70 text-sm">No events yet.</div>
-            )}
-          </div>
-        </section>
+            {/* Bottom row: Yayınla (left) + Oluştur (right) */}
+            <div className="mt-auto flex items-center justify-between gap-4 flex-wrap">
+              <label className="label cursor-pointer justify-start gap-3 m-0">
+                <input
+                  type="checkbox"
+                  className="checkbox"
+                  name="published"
+                  checked={eForm.published}
+                  onChange={onEChange}
+                />
+                <span className="label-text">Yayınla</span>
+              </label>
+
+              <button
+                className={cls(
+                  "btn rounded-full bg-neutral-900 text-white hover:bg-black",
+                  eLoading && "btn-disabled opacity-70"
+                )}
+                disabled={eLoading}
+                type="submit"
+              >
+                {eLoading ? "Kaydediliyor…" : "Oluştur"}
+              </button>
+            </div>
+
+            <ErrorAlert message={eErr} />
+          </form>
+        </Surface>
       </div>
 
-      {msg && (
-        <div className="toast toast-end">
-          <div className="alert alert-info">{msg}</div>
+      {/* Lists */}
+      <div className="mt-10 grid lg:grid-cols-2 gap-6">
+        {/* --------- ESERLER --------- */}
+        <Surface className="p-6 md:p-8">
+          <h3 className="text-lg font-semibold text-neutral-900 mb-3">
+            Eserler
+          </h3>
+          {artworks.length ? (
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Başlık</th>
+                    <th>Fiyat</th>
+                    <th>Durum</th>
+                    <th className="text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {artworks.map((a) => (
+                    <tr key={a.id} className="hover">
+                      <td>{a.title}</td>
+                      <td>{a.price ?? "—"}</td>
+                      <td>{a.available ? "Satışta" : "Satışta değil"}</td>
+                      <td className="text-right">
+                        <button
+                          className="btn btn-sm me-2"
+                          onClick={() => setEditArtwork(a)}
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => removeArtwork(a.id)}
+                        >
+                          Sil
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="opacity-60">Henüz eser yok.</div>
+          )}
+        </Surface>
+
+        {/* --------- ETKİNLİKLER --------- */}
+        <Surface className="p-6 md:p-8">
+          <h3 className="text-lg font-semibold text-neutral-900 mb-3">
+            Etkinlikler
+          </h3>
+          {events.length ? (
+            <div className="overflow-x-auto">
+              <table className="table table-auto w-full">
+                <thead>
+                  <tr>
+                    <th>Başlık</th>
+                    <th>Mekan</th>
+                    <th>Tarih</th>
+                    <th className="text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map((ev) => (
+                    <tr key={ev.id} className="hover">
+                      {/* Başlık – modest width; allow wrap */}
+                      <td className="align-middle whitespace-normal break-words max-w-[180px]">
+                        {ev.title}
+                      </td>
+
+                      {/* Mekan – a bit narrower so Tarih can breathe */}
+                      <td className="align-middle whitespace-normal break-words max-w-[200px]">
+                        {ev.location ?? "—"}
+                      </td>
+
+                      {/* Tarih – wider + no wrap per date line */}
+                      <td className="align-middle max-w-[240px]">
+                        <div className="flex flex-col">
+                          <span className="whitespace-nowrap">
+                            {ev.start_date ?? "—"}
+                          </span>
+                          {ev.end_date ? (
+                            <span className="whitespace-nowrap">
+                              {ev.end_date}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+
+                      {/* İşlem – fixed compact width, no wrap */}
+                      <td className="align-middle text-right whitespace-nowrap w-[164px]">
+                        <button
+                          className="btn btn-sm me-2"
+                          onClick={() => setEditEvent(ev)}
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => removeEvent(ev.id)}
+                        >
+                          Sil
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="opacity-60">Henüz etkinlik yok.</div>
+          )}
+        </Surface>
+      </div>
+
+      {/* ---- Artwork Edit Modal ---- */}
+      {editArtwork && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-2xl">
+            <h3 className="font-semibold text-lg mb-3">Eser Düzenle</h3>
+            <div className="grid gap-3">
+              <input
+                className="input input-bordered"
+                value={editArtwork.title || ""}
+                onChange={(e) =>
+                  setEditArtwork({ ...editArtwork, title: e.target.value })
+                }
+                placeholder="Başlık"
+              />
+              <div className="grid md:grid-cols-3 gap-3">
+                <input
+                  className="input input-bordered"
+                  value={editArtwork.medium || ""}
+                  onChange={(e) =>
+                    setEditArtwork({ ...editArtwork, medium: e.target.value })
+                  }
+                  placeholder="Teknik"
+                />
+                <input
+                  className="input input-bordered"
+                  type="number"
+                  value={editArtwork.price ?? ""}
+                  onChange={(e) =>
+                    setEditArtwork({ ...editArtwork, price: e.target.value })
+                  }
+                  placeholder="Fiyat"
+                />
+                <label className="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="checkbox"
+                    checked={!!editArtwork.available}
+                    onChange={(e) =>
+                      setEditArtwork({
+                        ...editArtwork,
+                        available: e.target.checked,
+                      })
+                    }
+                  />
+                  <span className="label-text">Satışta</span>
+                </label>
+              </div>
+              <textarea
+                className="textarea textarea-bordered"
+                value={editArtwork.description || ""}
+                onChange={(e) =>
+                  setEditArtwork({
+                    ...editArtwork,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Açıklama"
+              />
+
+              {/* Change image */}
+              <div className="mt-2 grid md:grid-cols-[1fr_auto] items-center gap-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="file-input file-input-bordered w-full"
+                  onChange={(e) =>
+                    setEditArtwork({
+                      ...editArtwork,
+                      _newFile: e.target.files?.[0] || null,
+                    })
+                  }
+                />
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      await uploadArtworkImage(
+                        editArtwork.id,
+                        editArtwork._newFile
+                      );
+                      alert("Görsel güncellendi.");
+                      setEditArtwork({ ...editArtwork, _newFile: null });
+                      await loadAll();
+                    } catch (err) {
+                      alert(err.message || "Görsel yüklenemedi.");
+                    }
+                  }}
+                  disabled={!editArtwork._newFile}
+                >
+                  Görseli Yükle
+                </button>
+              </div>
+            </div>
+            <div className="modal-action">
+              <button className="btn" onClick={closeEdits}>
+                Kapat
+              </button>
+              <button className="btn btn-primary" onClick={saveEditedArtwork}>
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Event Edit Modal ---- */}
+      {editEvent && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-2xl">
+            <h3 className="font-semibold text-lg mb-3">Etkinlik Düzenle</h3>
+            <div className="grid gap-3">
+              <input
+                className="input input-bordered"
+                value={editEvent.title || ""}
+                onChange={(e) =>
+                  setEditEvent({ ...editEvent, title: e.target.value })
+                }
+                placeholder="Başlık"
+              />
+              <input
+                className="input input-bordered"
+                value={editEvent.location || ""}
+                onChange={(e) =>
+                  setEditEvent({ ...editEvent, location: e.target.value })
+                }
+                placeholder="Mekan"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  className="input input-bordered"
+                  type="date"
+                  value={editEvent.start_date || ""}
+                  onChange={(e) =>
+                    setEditEvent({ ...editEvent, start_date: e.target.value })
+                  }
+                />
+                <input
+                  className="input input-bordered"
+                  type="date"
+                  value={editEvent.end_date || ""}
+                  onChange={(e) =>
+                    setEditEvent({ ...editEvent, end_date: e.target.value })
+                  }
+                />
+              </div>
+              <textarea
+                className="textarea textarea-bordered"
+                value={editEvent.details || ""}
+                onChange={(e) =>
+                  setEditEvent({ ...editEvent, details: e.target.value })
+                }
+                placeholder="Detay"
+              />
+              <label className="label cursor-pointer justify-start gap-3">
+                <input
+                  type="checkbox"
+                  className="checkbox"
+                  checked={!!editEvent.published}
+                  onChange={(e) =>
+                    setEditEvent({ ...editEvent, published: e.target.checked })
+                  }
+                />
+                <span className="label-text">Yayınla</span>
+              </label>
+            </div>
+            <div className="modal-action">
+              <button className="btn" onClick={closeEdits}>
+                Kapat
+              </button>
+              <button className="btn btn-primary" onClick={saveEditedEvent}>
+                Kaydet
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
