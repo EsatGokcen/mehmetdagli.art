@@ -1,12 +1,21 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 let CSRF_TOKEN = null;
+
+async function safe(res) {
+  if (res.ok) {
+    // Return JSON or empty on 204
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+  const text = await res.text();
+  throw new Error(text || res.statusText || "Request failed");
+}
 
 export async function refreshCsrf() {
   const res = await fetch(`${API_BASE}/api/auth/csrf`, {
     credentials: "include",
   });
-  if (!res.ok) throw new Error("Failed to get CSRF");
   const data = await res.json();
   CSRF_TOKEN = data.csrf;
   return CSRF_TOKEN;
@@ -17,52 +26,53 @@ async function ensureCsrf() {
   return CSRF_TOKEN;
 }
 
-async function safe(res) {
-  if (res.ok)
-    return res.status === 204 ? null : await res.json().catch(() => ({}));
-  let msg;
-  try {
-    const d = await res.json();
-    msg = d.detail || d.error || JSON.stringify(d);
-  } catch {
-    msg = `${res.status} ${res.statusText}`;
-  }
-  throw new Error(msg);
-}
-
-export async function get(path) {
-  const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+export async function get(path, opts = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    ...opts,
+  });
   return safe(res);
 }
 
-export async function post(path, body) {
+export async function post(path, body, opts = {}) {
   const csrf = await ensureCsrf();
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
+    headers: {
+      "Content-Type": "application/json",
+      "x-csrf-token": csrf,
+      ...(opts.headers || {}),
+    },
     body: JSON.stringify(body),
+    ...opts,
   });
   return safe(res);
 }
 
-export async function put(path, body) {
+export async function put(path, body, opts = {}) {
   const csrf = await ensureCsrf();
   const res = await fetch(`${API_BASE}${path}`, {
     method: "PUT",
     credentials: "include",
-    headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
+    headers: {
+      "Content-Type": "application/json",
+      "x-csrf-token": csrf,
+      ...(opts.headers || {}),
+    },
     body: JSON.stringify(body),
+    ...opts,
   });
   return safe(res);
 }
 
-export async function del(path) {
+export async function del(path, opts = {}) {
   const csrf = await ensureCsrf();
   const res = await fetch(`${API_BASE}${path}`, {
     method: "DELETE",
     credentials: "include",
-    headers: { "x-csrf-token": csrf },
+    headers: { "x-csrf-token": csrf, ...(opts.headers || {}) },
+    ...opts,
   });
   return safe(res);
 }
@@ -76,20 +86,41 @@ export async function login(username, password) {
     credentials: "include",
     body: form,
   });
-  // CSRF rotates on successful login — caller should call refreshCsrf()
   return safe(res);
 }
 
 export async function logout() {
-  const csrf = await ensureCsrf().catch(() => null); // okay if not logged in
-  const headers = csrf ? { "x-csrf-token": csrf } : {};
+  // If not logged in, backend returns ok anyway
+  try {
+    await ensureCsrf();
+  } catch {}
   const res = await fetch(`${API_BASE}/api/auth/logout`, {
     method: "POST",
     credentials: "include",
-    headers,
+    headers: CSRF_TOKEN ? { "x-csrf-token": CSRF_TOKEN } : {},
   });
   CSRF_TOKEN = null;
   return safe(res);
+}
+
+/** Friendly endpoints */
+export const endpoints = {
+  artworks: (p = {}) =>
+    `/api/portfolio?offset=${p.offset ?? 0}&limit=${p.limit ?? 50}` +
+    (p.q ? `&q=${encodeURIComponent(p.q)}` : "") +
+    (p.available != null ? `&available=${p.available}` : ""),
+  events: (p = {}) =>
+    `/api/events?offset=${p.offset ?? 0}&limit=${p.limit ?? 50}` +
+    (p.upcoming_only ? `&upcoming_only=true` : "") +
+    (p.q ? `&q=${encodeURIComponent(p.q)}` : ""),
+};
+
+export async function fetchArtworks(params) {
+  return get(endpoints.artworks(params));
+}
+
+export async function fetchEvents(params) {
+  return get(endpoints.events(params));
 }
 
 export { API_BASE };

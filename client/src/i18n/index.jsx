@@ -6,197 +6,193 @@ import React, {
   useEffect,
 } from "react";
 
-/** Supported languages (order matters for the switcher) */
 export const LANGS = ["tr", "en", "it"];
 
-/** Translations */
 const dict = {
   tr: {
     langName: "Türkçe",
-    // layout / nav
+    layout: { brand: "Mehmet Dağlı" },
     nav: {
-      portfolio: "Portfolio",
+      home: "Ana Sayfa",
+      portfolio: "Portfolyo", // ✅ corrected
       events: "Etkinlikler",
       bio: "Biyografi",
       contact: "İletişim",
       admin: "Yönetim",
     },
-    // bio page
+    common: {
+      loading: "Yükleniyor…",
+      errorGeneric: "Bir şeyler ters gitti",
+      retry: "Tekrar dene",
+      available: "Satışta",
+      notAvailable: "Satışta değil",
+      seeAll: "Tümünü gör",
+      empty: "İçerik bulunamadı.",
+    },
+    home: {
+      title: "En Son Çalışmalar",
+      seeFullPortfolio: "Tüm portfolyoyu gör →",
+      empty: "Henüz eser eklenmedi.",
+    },
+    portfolio: {
+      title: "Portfolyo", // ✅ corrected
+      empty: "Henüz eser bulunmuyor.",
+    },
+    events: {
+      title: "Etkinlikler",
+      empty: "Yaklaşan etkinlik yok.",
+    },
     bio: {
       title: "Biyografi",
       sections: {
-        aboutTitle: "Mehmet Dağlı",
-        aboutParas: [
-          "1959 yılında Malatya’da doğdu. İlk ve orta öğrenimini burada tamamladıktan sonra lisansını Marmara Üniversitesi Atatürk Eğitim Fakültesi Grafik Bölümünde tamamladı.",
-          "Ardından İtalya’da ‘Ambalaj ve Grafik Tasarımı’ eğitimi aldı. Aynı ülkede üç yıllık iş tecrübesi edindikten sonra İstanbul’da kendi reklam ajansını kurdu. Ulusal ve uluslararası birçok markaya hizmet veren ajansında Kreatif Direktör olarak çalıştı.",
-          "Daha sonra Doğuş Üniversitesinde ‘Grafik ve Ambalaj Tasarımı’ dersleri verdi. Grafik sanatlar ve tasarım alanında uzun yıllar çalıştıktan sonra eğitim ve profesyonel hayatı boyunca ilgi duyduğu resme daha çok yoğunlaşmaya başladı.",
-        ],
-        exhibitions: "Sergiler",
+        timeline: "Zaman Çizelgesi",
+        awards: "Ödüller",
         solo: "Kişisel Sergiler",
-        group: "Grup Sergileri",
+        group: "Karma Sergiler",
       },
-      soloList: [
-        { year: 2017, text: '"Lines" Bohem Gallery, İstanbul' },
-        { year: 2018, text: "Rengigül Gallery, Bozcaada Çanakkale" },
-        { year: 2023, text: "Fular’t Sanat Evi, İstanbul" },
-        { year: 2024, text: "Forlì Sanat Fuarı, İtalya" },
+      timelineList: [
+        { year: "2020", text: "İstanbul’da ilk kişisel sergi" },
+        { year: "2022", text: "Ankara Sanat Günleri" },
+        { year: "2024", text: "Roma konuk sanatçı programı" },
       ],
-      groupList: [
-        { year: 2018, text: "İstanbul Art Show, Gallery Abay, İstanbul" },
-        {
-          year: 2018,
-          text: "Bir Grup İnsan, Türkan Saylan Kültür Merkezi, İstanbul",
-        },
-        { year: 2018, text: "Bir Grup İnsan, Pusula Art Gallery, İstanbul" },
-        {
-          year: 2018,
-          text: "Bir Grup İnsan, Çerkezköy Belediye Sanat Galerisi, Tekirdağ",
-        },
-        { year: 2018, text: "Moda Passage Art Gallery, İstanbul" },
-        {
-          year: 2019,
-          text: "ArtAnkara 5. Uluslararası Çağdaş Sanat Fuarı, Ankara",
-        },
-        {
-          year: 2019,
-          text: "Artİstanbul 2. Uluslararası Çağdaş Sanat Fuarı, İstanbul",
-        },
-        {
-          year: 2023,
-          text: "Fular’t Sanat Evi, Yeni Yıl Karma Sergi, İstanbul",
-        },
-        { year: 2024, text: "Evrim Sanat Galerisi, Sintesi Sergisi" },
-      ],
+      awardsList: [{ year: "2023", text: "Çağdaş Sanat Ödülü" }],
+      soloList: [{ year: "2021", text: "“Doğa ve Biçimler”, İstanbul" }],
+      groupList: [{ year: "2022", text: "Karma sergi, Ankara" }],
+    },
+    contact: { title: "İletişim", send: "Gönder" },
+    notFound: {
+      title: "Sayfa bulunamadı",
+      body: "Aradığınız sayfayı bulamadık.",
     },
   },
 
   en: {
     langName: "English",
+    layout: { brand: "Mehmet Dağlı" },
     nav: {
+      home: "Home",
       portfolio: "Portfolio",
       events: "Events",
       bio: "Bio",
       contact: "Contact",
       admin: "Admin",
     },
+    common: {
+      loading: "Loading...",
+      errorGeneric: "Something went wrong",
+      retry: "Retry",
+      available: "Available",
+      notAvailable: "Not available",
+      seeAll: "See all",
+      empty: "Nothing to show yet.",
+    },
+    home: {
+      title: "Recent Works",
+      seeFullPortfolio: "See full portfolio →",
+      empty: "No artworks yet.",
+    },
+    portfolio: {
+      title: "Portfolio",
+      empty: "No artworks yet.",
+    },
+    events: {
+      title: "Events",
+      empty: "No upcoming events.",
+    },
     bio: {
       title: "Biography",
       sections: {
-        aboutTitle: "Mehmet Dağlı",
-        aboutParas: [
-          "Born in 1959 in Malatya, Turkey. After completing his primary and secondary education there, he graduated from Marmara University, Atatürk Faculty of Education, Department of Graphic Design.",
-          "He then studied “Packaging and Graphic Design” in Italy. Following three years of professional experience in the same country, he returned to Istanbul and founded his own advertising agency, serving national and international brands as Creative Director.",
-          "Later, he taught “Graphic and Packaging Design” at Doğuş University. After many years in graphic arts and design, he began to focus more intensely on painting—an interest he pursued throughout his education and professional life.",
-        ],
-        exhibitions: "Exhibitions",
+        timeline: "Timeline",
+        awards: "Awards",
         solo: "Solo Exhibitions",
         group: "Group Exhibitions",
       },
-      soloList: [
-        { year: 2017, text: '"Lines" — Bohem Gallery, Istanbul' },
-        { year: 2018, text: "Rengigül Gallery, Bozcaada, Çanakkale" },
-        { year: 2023, text: "Fular’t Art House, Istanbul" },
-        { year: 2024, text: "Forlì Art Fair, Italy" },
+      timelineList: [
+        { year: "2020", text: "First solo show in Istanbul" },
+        { year: "2022", text: "Ankara Art Days" },
+        { year: "2024", text: "Rome artist residency" },
       ],
-      groupList: [
-        { year: 2018, text: "Istanbul Art Show, Gallery Abay, Istanbul" },
-        {
-          year: 2018,
-          text: "A Group of People, Türkan Saylan Cultural Center, Istanbul",
-        },
-        { year: 2018, text: "A Group of People, Pusula Art Gallery, Istanbul" },
-        {
-          year: 2018,
-          text: "A Group of People, Çerkezköy Municipal Art Gallery, Tekirdağ",
-        },
-        { year: 2018, text: "Moda Passage Art Gallery, Istanbul" },
-        {
-          year: 2019,
-          text: "ArtAnkara 5th International Contemporary Art Fair, Ankara",
-        },
-        {
-          year: 2019,
-          text: "ArtIstanbul 2nd International Contemporary Art Fair, Istanbul",
-        },
-        {
-          year: 2023,
-          text: "Fular’t Art House, New Year Mixed Exhibition, Istanbul",
-        },
-        { year: 2024, text: "Evrim Art Gallery, Sintesi Exhibition" },
-      ],
+      awardsList: [{ year: "2023", text: "Contemporary Art Prize" }],
+      soloList: [{ year: "2021", text: "“Nature & Forms”, Istanbul" }],
+      groupList: [{ year: "2022", text: "Group exhibition, Ankara" }],
+    },
+    contact: { title: "Contact", send: "Send" },
+    notFound: {
+      title: "Page not found",
+      body: "Sorry, we couldn't find that.",
     },
   },
 
   it: {
     langName: "Italiano",
+    layout: { brand: "Mehmet Dağlı" },
     nav: {
+      home: "Home",
       portfolio: "Portfolio",
       events: "Eventi",
-      bio: "Biografia",
+      bio: "Bio",
       contact: "Contatto",
       admin: "Admin",
+    },
+    common: {
+      loading: "Caricamento…",
+      errorGeneric: "Qualcosa è andato storto",
+      retry: "Riprova",
+      available: "Disponibile",
+      notAvailable: "Non disponibile",
+      seeAll: "Vedi tutto",
+      empty: "Niente da mostrare.",
+    },
+    home: {
+      title: "Opere Recenti",
+      seeFullPortfolio: "Vedi tutto il portfolio →",
+      empty: "Ancora nessuna opera.",
+    },
+    portfolio: {
+      title: "Portfolio",
+      empty: "Ancora nessuna opera.",
+    },
+    events: {
+      title: "Eventi",
+      empty: "Nessun evento imminente.",
     },
     bio: {
       title: "Biografia",
       sections: {
-        aboutTitle: "Mehmet Dağlı",
-        aboutParas: [
-          "Nato nel 1959 a Malatya. Dopo gli studi primari e secondari, si è laureato all’Università di Marmara, Facoltà di Formazione Atatürk, Dipartimento di Grafica.",
-          "Successivamente ha studiato “Packaging e Graphic Design” in Italia. Dopo tre anni di esperienza professionale nello stesso paese, è tornato a Istanbul dove ha fondato la propria agenzia pubblicitaria, lavorando come Direttore Creativo per marchi nazionali e internazionali.",
-          "In seguito ha insegnato “Graphic e Packaging Design” all’Università Doğuş. Dopo molti anni nelle arti grafiche e nel design, ha iniziato a concentrarsi maggiormente sulla pittura, interesse coltivato durante tutta la sua formazione e carriera.",
-        ],
-        exhibitions: "Mostre",
-        solo: "Personali",
-        group: "Collettive",
+        timeline: "Cronologia",
+        awards: "Premi",
+        solo: "Mostre Personali",
+        group: "Mostre Collettive",
       },
-      soloList: [
-        { year: 2017, text: '"Lines" — Bohem Gallery, Istanbul' },
-        { year: 2018, text: "Rengigül Gallery, Bozcaada, Çanakkale" },
-        { year: 2023, text: "Fular’t Art House, Istanbul" },
-        { year: 2024, text: "Fiera d’Arte di Forlì, Italia" },
+      timelineList: [
+        { year: "2020", text: "Prima personale a Istanbul" },
+        { year: "2022", text: "Giornate dell'Arte di Ankara" },
+        { year: "2024", text: "Residenza d'artista a Roma" },
       ],
-      groupList: [
-        { year: 2018, text: "Istanbul Art Show, Gallery Abay, Istanbul" },
-        {
-          year: 2018,
-          text: "Un Gruppo di Persone, Centro Culturale Türkan Saylan, Istanbul",
-        },
-        {
-          year: 2018,
-          text: "Un Gruppo di Persone, Pusula Art Gallery, Istanbul",
-        },
-        {
-          year: 2018,
-          text: "Un Gruppo di Persone, Galleria d’Arte Comunale di Çerkezköy, Tekirdağ",
-        },
-        { year: 2018, text: "Moda Passage Art Gallery, Istanbul" },
-        {
-          year: 2019,
-          text: "ArtAnkara 5ª Fiera Internazionale d’Arte Contemporanea, Ankara",
-        },
-        {
-          year: 2019,
-          text: "ArtIstanbul 2ª Fiera Internazionale d’Arte Contemporanea, Istanbul",
-        },
-        {
-          year: 2023,
-          text: "Fular’t Art House, Mostra Collettiva di Capodanno, Istanbul",
-        },
-        { year: 2024, text: "Galleria d’Arte Evrim, mostra Sintesi" },
-      ],
+      awardsList: [{ year: "2023", text: "Premio Arte Contemporanea" }],
+      soloList: [{ year: "2021", text: "“Natura & Forme”, Istanbul" }],
+      groupList: [{ year: "2022", text: "Mostra collettiva, Ankara" }],
+    },
+    contact: { title: "Contatto", send: "Invia" },
+    notFound: {
+      title: "Pagina non trovata",
+      body: "Spiacenti, non l'abbiamo trovata.",
     },
   },
 };
 
-/** Context */
-const I18nCtx = createContext({ lang: "tr", setLang: () => {}, t: (p) => p });
+const I18nCtx = createContext({ lang: "tr", setLang: () => {}, t: () => "" });
 
 export function I18nProvider({ children, defaultLang = "tr" }) {
-  const [lang, setLang] = useState(localStorage.getItem("lang") || defaultLang);
+  const [lang, setLang] = useState(defaultLang);
 
   useEffect(() => {
-    localStorage.setItem("lang", lang);
-    document.documentElement.setAttribute("data-lang", lang);
+    const saved = localStorage.getItem("md.lang");
+    if (saved && dict[saved]) setLang(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("md.lang", lang);
   }, [lang]);
 
   const value = useMemo(() => {

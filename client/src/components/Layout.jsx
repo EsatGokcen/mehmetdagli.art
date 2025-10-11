@@ -11,15 +11,16 @@ export default function Layout() {
       <header className="navbar bg-base-100 shadow">
         <div className="flex-1">
           <Link to="/" className="btn btn-ghost text-xl">
-            Mehmet Dağlı
+            {t("layout.brand") || "Mehmet Dağlı"}
           </Link>
         </div>
-        <nav className="flex-none flex items-center gap-2">
+
+        <nav className="flex items-center gap-1">
+          <ActiveNavLink to="/">{t("nav.home")}</ActiveNavLink>
           <ActiveNavLink to="/portfolio">{t("nav.portfolio")}</ActiveNavLink>
           <ActiveNavLink to="/events">{t("nav.events")}</ActiveNavLink>
           <ActiveNavLink to="/bio">{t("nav.bio")}</ActiveNavLink>
           <ActiveNavLink to="/contact">{t("nav.contact")}</ActiveNavLink>
-          <ActiveNavLink to="/admin/login">{t("nav.admin")}</ActiveNavLink>
           <LanguageSwitch />
         </nav>
       </header>
