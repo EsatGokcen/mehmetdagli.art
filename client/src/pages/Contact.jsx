@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SectionHeader from "../components/SectionHeader.jsx";
 import { useI18n } from "../i18n/index.jsx";
 import { getContactStrings } from "../i18n/contact.js";
@@ -36,6 +36,8 @@ export default function Contact() {
   });
   const [sent, setSent] = useState(false);
   const [errors, setErrors] = useState({});
+  const [ddOpen, setDdOpen] = useState(false); // dropdown open state
+  const ddBtnRef = useRef(null);
 
   const portrait = "/mehmet2.png"; // circular avatar (from /public)
 
@@ -65,6 +67,20 @@ export default function Contact() {
     setSent(true);
   }
 
+  // Close dropdown when focus leaves the dropdown container
+  function onDropdownBlur(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDdOpen(false);
+    }
+  }
+
+  // When dropdown opens, scroll the trigger into viewport center so options are visible
+  useEffect(() => {
+    if (ddOpen) {
+      ddBtnRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [ddOpen]);
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       {/* top header + larger circular image */}
@@ -85,14 +101,21 @@ export default function Contact() {
       </div>
 
       {/* wider form card */}
-      <div className="mt-10 mx-auto max-w-3xl">
+      <div className="mt-10 mx-auto max-w-3xl mb-24 md:mb-32">
+        {/* ^ extra bottom space between card and footer without changing card height */}
         <Surface className="p-6 md:p-8">
           <SectionHeader title={S.title} />
-          <form className="space-y-6" onSubmit={onSubmit} noValidate>
+
+          {/* bump base text size inside the form */}
+          <form
+            className="space-y-6 text-base md:text-lg"
+            onSubmit={onSubmit}
+            noValidate
+          >
             {/* Name */}
             <div>
               <label className="label block mb-2">
-                <span className="label-text text-neutral-800">
+                <span className="label-text text-neutral-800 text-base md:text-lg">
                   {S.fields.yourName}
                 </span>
               </label>
@@ -101,7 +124,7 @@ export default function Contact() {
                 name="name"
                 value={form.name}
                 onChange={onChange}
-                className="input input-bordered w-full text-neutral-900 placeholder-neutral-500"
+                className="input input-bordered w-full text-neutral-900 placeholder-neutral-500 text-base md:text-lg"
                 autoComplete="name"
               />
               <FieldError>{errors.name}</FieldError>
@@ -110,7 +133,7 @@ export default function Contact() {
             {/* Email */}
             <div>
               <label className="label block mb-2">
-                <span className="label-text text-neutral-800">
+                <span className="label-text text-neutral-800 text-base md:text-lg">
                   {S.fields.email}
                 </span>
               </label>
@@ -119,7 +142,7 @@ export default function Contact() {
                 name="email"
                 value={form.email}
                 onChange={onChange}
-                className="input input-bordered w-full text-neutral-900 placeholder-neutral-500"
+                className="input input-bordered w-full text-neutral-900 placeholder-neutral-500 text-base md:text-lg"
                 autoComplete="email"
               />
               <FieldError>{errors.email}</FieldError>
@@ -128,7 +151,7 @@ export default function Contact() {
             {/* Message */}
             <div>
               <label className="label block mb-2">
-                <span className="label-text text-neutral-800">
+                <span className="label-text text-neutral-800 text-base md:text-lg">
                   {S.fields.message}
                 </span>
               </label>
@@ -136,32 +159,43 @@ export default function Contact() {
                 name="message"
                 value={form.message}
                 onChange={onChange}
-                className="textarea textarea-bordered w-full min-h-[140px] text-neutral-900 placeholder-neutral-500"
+                className="textarea textarea-bordered w-full min-h-[140px] text-neutral-900 placeholder-neutral-500 text-base md:text-lg"
               />
               <FieldError>{errors.message}</FieldError>
             </div>
 
-            {/* How did you find us? (forced to open below) */}
+            {/* How did you find us? — DaisyUI dropdown that force-closes on select */}
             <div>
               <label className="label block mb-2">
-                <span className="label-text text-neutral-800">
+                <span className="label-text text-neutral-800 text-base md:text-lg">
                   {S.fields.howFound}
                 </span>
               </label>
 
-              <div className="dropdown dropdown-bottom w-full">
+              <div
+                className={cls(
+                  "dropdown dropdown-bottom w-full",
+                  ddOpen && "dropdown-open"
+                )}
+                onBlur={onDropdownBlur}
+              >
                 <button
                   type="button"
+                  ref={ddBtnRef}
                   tabIndex={0}
-                  className="btn w-full justify-between bg-white border border-neutral-300 text-neutral-900"
+                  className="btn w-full justify-between bg-white border border-neutral-300 text-neutral-900 h-12 text-base md:text-lg"
+                  aria-haspopup="listbox"
+                  aria-expanded={ddOpen}
+                  onClick={() => setDdOpen((o) => !o)}
                 >
-                  {form.howFound || "—"}
+                  {form.howFound || (S.helpers?.choose ?? "Seçiniz")}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-4 w-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -174,16 +208,27 @@ export default function Contact() {
 
                 <ul
                   tabIndex={0}
+                  role="listbox"
                   className="dropdown-content z-[50] menu p-2 mt-1 w-full rounded-box bg-base-100 border border-neutral-200 shadow-[0_12px_32px_rgba(0,0,0,0.24)]"
                 >
-                  {S.findOptions.map((opt, i) => (
-                    <li key={i}>
+                  {S.findOptions.map((opt) => (
+                    <li key={opt}>
                       <button
                         type="button"
-                        className="justify-between"
-                        onClick={() =>
-                          setForm((f) => ({ ...f, howFound: opt }))
-                        }
+                        role="option"
+                        aria-selected={form.howFound === opt}
+                        className="justify-between text-base md:text-lg"
+                        onClick={() => {
+                          setForm((f) => ({ ...f, howFound: opt }));
+                          setDdOpen(false);
+                          // blur to remove focus-within so DaisyUI closes immediately
+                          requestAnimationFrame(() => {
+                            if (document.activeElement instanceof HTMLElement) {
+                              document.activeElement.blur();
+                            }
+                            ddBtnRef.current?.blur();
+                          });
+                        }}
                       >
                         {opt}
                         {form.howFound === opt ? (
@@ -206,7 +251,7 @@ export default function Contact() {
                   checked={form.purchaseInquiry}
                   onChange={onChange}
                 />
-                <span className="label-text text-neutral-800">
+                <span className="label-text text-neutral-800 text-base md:text-lg">
                   {S.fields.purchaseQ}
                 </span>
               </label>
@@ -216,7 +261,7 @@ export default function Contact() {
             {form.purchaseInquiry && (
               <div>
                 <label className="label block mb-2">
-                  <span className="label-text text-neutral-800">
+                  <span className="label-text text-neutral-800 text-base md:text-lg">
                     {S.fields.address}
                   </span>
                 </label>
@@ -224,7 +269,7 @@ export default function Contact() {
                   name="address"
                   value={form.address}
                   onChange={onChange}
-                  className="textarea textarea-bordered w-full min-h-[100px] text-neutral-900 placeholder-neutral-500"
+                  className="textarea textarea-bordered w-full min-h-[100px] text-neutral-900 placeholder-neutral-500 text-base md:text-lg"
                 />
                 <FieldError>{errors.address}</FieldError>
               </div>
@@ -234,7 +279,7 @@ export default function Contact() {
             <div className="pt-2">
               <button
                 type="submit"
-                className="btn rounded-full bg-neutral-900 text-white hover:bg-black"
+                className="btn rounded-full bg-neutral-900 text-white hover:bg-black text-base md:text-lg"
               >
                 {S.fields.submit}
               </button>
