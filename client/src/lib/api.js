@@ -1,8 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+export const AUTH_EXPIRED = "AUTH_EXPIRED";
 
 let CSRF_TOKEN = null;
 
 async function safe(res) {
+  if (res.status === 401) {
+    // Session is gone → clear client markers; let UI redirect
+    CSRF_TOKEN = null;
+    try {
+      localStorage.removeItem("authLoginAt");
+      localStorage.removeItem("lastActivityAt");
+    } catch {}
+    throw new Error(AUTH_EXPIRED);
+  }
   if (res.ok) {
     // Return JSON or empty on 204
     const text = await res.text();

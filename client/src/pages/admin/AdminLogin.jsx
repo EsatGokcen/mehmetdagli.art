@@ -39,6 +39,9 @@ export default function AdminLogin() {
     try {
       setLoading(true);
       await apiLogin(form.username.trim(), form.password);
+      const now = Date.now();
+      localStorage.setItem("authLoginAt", String(now));
+      localStorage.setItem("lastActivityAt", String(now));
       navigate("/admin", { replace: true });
     } catch (ex) {
       setErr("Giriş başarısız. Bilgileri kontrol edip tekrar deneyin.");

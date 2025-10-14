@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorAlert from "../../components/ErrorAlert.jsx";
 import {
@@ -9,6 +9,8 @@ import {
   post,
   put,
   del,
+  logout,
+  AUTH_EXPIRED,
 } from "../../lib/api.js";
 
 /* --- UI helpers --- */
@@ -28,7 +30,51 @@ const Surface = ({ className = "", children }) => (
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  /* ---------- Create Forms ---------- */
+  /** ----------------- Auto-logout: idle/absolute 60 min ----------------- */
+  const timerRef = useRef(null);
+  const MAX_SESSION_MS = 60 * 60 * 1000; // 1 hour
+
+  useEffect(() => {
+    let last = Number(localStorage.getItem("lastActivityAt")) || Date.now();
+
+    const bumpActivity = () => {
+      last = Date.now();
+      try {
+        localStorage.setItem("lastActivityAt", String(last));
+      } catch {}
+      schedule(); // re-arm with new remaining time
+    };
+
+    const expire = async () => {
+      try {
+        await logout();
+      } catch {}
+      navigate("/admin/login", {
+        replace: true,
+        state: { msg: "Oturum süresi doldu. Lütfen tekrar giriş yapın." },
+      });
+    };
+
+    const schedule = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      const remaining = MAX_SESSION_MS - (Date.now() - last);
+      timerRef.current = setTimeout(expire, Math.max(1000, remaining));
+    };
+
+    const events = ["click", "keydown", "mousemove", "scroll", "touchstart"];
+    events.forEach((ev) =>
+      window.addEventListener(ev, bumpActivity, { passive: true })
+    );
+    schedule();
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      events.forEach((ev) => window.removeEventListener(ev, bumpActivity));
+    };
+  }, [navigate]);
+
+  /** ----------------- State ----------------- */
+  /* Create forms */
   const [aForm, setAForm] = useState({
     title: "",
     price: "",
@@ -51,12 +97,12 @@ export default function AdminDashboard() {
   const [eLoading, setELoading] = useState(false);
   const [eErr, setEErr] = useState("");
 
-  /* ---------- Lists ---------- */
+  /* Lists */
   const [artworks, setArtworks] = useState([]);
   const [events, setEvents] = useState([]);
   const [loadErr, setLoadErr] = useState("");
 
-  /* ---------- Editing modals ---------- */
+  /* Editing modals */
   const [editArtwork, setEditArtwork] = useState(null);
   const [editEvent, setEditEvent] = useState(null);
   const closeEdits = () => {
@@ -64,6 +110,23 @@ export default function AdminDashboard() {
     setEditEvent(null);
   };
 
+  /** ----------------- Helpers ----------------- */
+  const guardAuth = (err, fallbackMsg) => {
+    if (err?.message === AUTH_EXPIRED) {
+      navigate("/admin/login", { replace: true });
+    } else {
+      if (fallbackMsg) alert(err?.message || fallbackMsg);
+    }
+  };
+
+  const handleLogoutClick = async () => {
+    try {
+      await logout();
+    } catch {}
+    navigate("/admin/login", { replace: true });
+  };
+
+  /** ----------------- Data load ----------------- */
   const loadAll = useCallback(async () => {
     try {
       setLoadErr("");
@@ -74,15 +137,19 @@ export default function AdminDashboard() {
       setArtworks(Array.isArray(alist) ? alist : []);
       setEvents(Array.isArray(elist) ? elist : []);
     } catch (e) {
+      if (e?.message === AUTH_EXPIRED) {
+        navigate("/admin/login", { replace: true });
+        return;
+      }
       setLoadErr(e.message || "Veriler yüklenemedi.");
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
-  /* ---------- Handlers ---------- */
+  /** ----------------- Handlers ----------------- */
   function onAChange(e) {
     const { name, value, type, checked, files } = e.target;
     if (type === "checkbox") setAForm((f) => ({ ...f, [name]: checked }));
@@ -90,6 +157,7 @@ export default function AdminDashboard() {
       setAForm((f) => ({ ...f, file: files?.[0] || null }));
     else setAForm((f) => ({ ...f, [name]: value }));
   }
+
   function onEChange(e) {
     const { name, value, type, checked } = e.target;
     if (type === "checkbox") setEForm((f) => ({ ...f, [name]: checked }));
@@ -128,6 +196,11 @@ export default function AdminDashboard() {
             body: fd,
           }
         );
+        if (res.status === 401) {
+          // treat as expired
+          navigate("/admin/login", { replace: true });
+          return;
+        }
         if (!res.ok)
           throw new Error((await res.text()) || "Görsel yüklenemedi.");
       }
@@ -142,7 +215,11 @@ export default function AdminDashboard() {
       });
       loadAll();
     } catch (err) {
-      setAErr(err.message || "Eser oluşturulamadı.");
+      if (err?.message === AUTH_EXPIRED) {
+        navigate("/admin/login", { replace: true });
+      } else {
+        setAErr(err.message || "Eser oluşturulamadı.");
+      }
     } finally {
       setALoading(false);
     }
@@ -176,7 +253,11 @@ export default function AdminDashboard() {
       });
       loadAll();
     } catch (err) {
-      setEErr(err.message || "Etkinlik oluşturulamadı.");
+      if (err?.message === AUTH_EXPIRED) {
+        navigate("/admin/login", { replace: true });
+      } else {
+        setEErr(err.message || "Etkinlik oluşturulamadı.");
+      }
     } finally {
       setELoading(false);
     }
@@ -188,16 +269,17 @@ export default function AdminDashboard() {
       await del(`/api/portfolio/${id}`);
       loadAll();
     } catch (e) {
-      alert(e.message || "Silme işlemi başarısız.");
+      guardAuth(e, "Silme işlemi başarısız.");
     }
   }
+
   async function removeEvent(id) {
     if (!confirm("Bu etkinliği silmek istediğinize emin misiniz?")) return;
     try {
       await del(`/api/events/${id}`);
       loadAll();
     } catch (e) {
-      alert(e.message || "Silme işlemi başarısız.");
+      guardAuth(e, "Silme işlemi başarısız.");
     }
   }
 
@@ -207,14 +289,17 @@ export default function AdminDashboard() {
         title: editArtwork.title ?? "",
         description: editArtwork.description ?? null,
         medium: editArtwork.medium ?? null,
-        price: editArtwork.price ?? null,
+        price:
+          editArtwork.price === "" || editArtwork.price == null
+            ? null
+            : Number(editArtwork.price),
         available: !!editArtwork.available,
       };
       await put(`/api/portfolio/${editArtwork.id}`, payload);
       closeEdits();
       loadAll();
     } catch (e) {
-      alert(e.message || "Güncelleme başarısız.");
+      guardAuth(e, "Güncelleme başarısız.");
     }
   }
 
@@ -232,7 +317,7 @@ export default function AdminDashboard() {
       closeEdits();
       loadAll();
     } catch (e) {
-      alert(e.message || "Güncelleme başarısız.");
+      guardAuth(e, "Güncelleme başarısız.");
     }
   }
 
@@ -247,20 +332,21 @@ export default function AdminDashboard() {
       headers: { "x-csrf-token": csrf },
       body: fd,
     });
+    if (res.status === 401) {
+      navigate("/admin/login", { replace: true });
+      return;
+    }
     if (!res.ok) throw new Error((await res.text()) || "Görsel yüklenemedi.");
   }
 
-  /* ---------- UI ---------- */
+  /** ----------------- UI ----------------- */
   return (
     <div className="container mx-auto px-4 py-8 md:py-10">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl md:text-3xl font-semibold text-neutral-900">
           Yönetim Paneli
         </h1>
-        <button
-          className="btn rounded-full"
-          onClick={() => navigate("/admin/login")}
-        >
+        <button className="btn rounded-full" onClick={handleLogoutClick}>
           Çıkış
         </button>
       </div>
@@ -635,7 +721,7 @@ export default function AdminDashboard() {
                       setEditArtwork({ ...editArtwork, _newFile: null });
                       await loadAll();
                     } catch (err) {
-                      alert(err.message || "Görsel yüklenemedi.");
+                      guardAuth(err, "Görsel yüklenemedi.");
                     }
                   }}
                   disabled={!editArtwork._newFile}

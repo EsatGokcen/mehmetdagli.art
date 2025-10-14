@@ -36,7 +36,7 @@ export default function Bio() {
       {/* Hero */}
       <div className="grid md:grid-cols-2 gap-6 items-stretch">
         <Surface className="p-6 md:p-8 flex flex-col justify-center">
-          <h1 className="text-4xl md:text-5xl font-sans tracking-tight text-neutral-900">
+          <h1 className="text-4xl text-center md:text-5xl font-sans tracking-tight text-neutral-900">
             {S.name}
           </h1>
           {/* removed underline/Divider under the name */}
