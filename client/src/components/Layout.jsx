@@ -8,10 +8,21 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <header className="navbar bg-base-100 shadow">
+      {/* sticky header; visual tweaks only */}
+      <header className="navbar bg-base-100 shadow sticky top-0 z-40 backdrop-blur-sm">
         <div className="flex-1">
           <Link to="/" className="btn btn-ghost text-xl">
-            {t("layout.brand") || "Mehmet Dağlı"}
+            <span className="inline-flex items-center gap-3">
+              {/* Logo from /public */}
+              <img
+                src="/mehmet-logo.png"
+                alt="Mehmet Dağlı logo"
+                className="h-8 md:h-9 w-auto object-contain"
+                loading="eager"
+                decoding="async"
+              />
+              {t("layout.brand") || "Mehmet Dağlı"}
+            </span>
           </Link>
         </div>
 
