@@ -133,4 +133,9 @@ export async function fetchEvents(params) {
   return get(endpoints.events(params));
 }
 
+export async function fetchInstagram(params = {}) {
+  const limit = params.limit ?? 12;
+  return get(`/api/social/instagram?limit=${limit}`);
+}
+
 export { API_BASE };

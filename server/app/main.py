@@ -9,6 +9,7 @@ from app.routers.portfolio import router as portfolio_router
 from app.routers.events import router as events_router
 from app.routers.auth import router as auth_router
 from app.routers.admin import router as admin_router
+from app.routers.social import router as social_router
 
 # --- App ---
 app = FastAPI(title="Mehmet Art API")
@@ -52,6 +53,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(portfolio_router)
 app.include_router(events_router)
+app.include_router(social_router)
 
 
 @app.get("/health")

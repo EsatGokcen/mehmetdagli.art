@@ -4,6 +4,7 @@ import { API_BASE, fetchArtworks, fetchEvents } from "../lib/api";
 import SectionHeader from "../components/SectionHeader.jsx";
 import GalleryCard from "../components/GalleryCard.jsx";
 import SkeletonCard from "../components/SkeletonCard.jsx";
+import InstagramSection from "../components/InstagramSection.jsx";
 import ErrorAlert from "../components/ErrorAlert.jsx";
 import { useI18n } from "../i18n/index.jsx";
 
@@ -414,6 +415,8 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      <InstagramSection title="Instagram" />
 
       {/* ---------- CTA ---------- */}
       <section className="rounded-3xl border border-neutral-200 p-6 md:p-10 bg-white shadow-[0_12px_36px_rgba(0,0,0,0.12)]">
