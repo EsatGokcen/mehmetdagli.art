@@ -1,4 +1,7 @@
+import { API_BASE } from "../lib/api"; // ADD
 import { formatDateISO } from "../lib/date";
+
+const toAbsolute = (p) => (p?.startsWith("http") ? p : `${API_BASE}${p || ""}`);
 
 export default function EventItem({ event }) {
   const imgs = Array.isArray(event.images) ? event.images : [];
@@ -11,7 +14,7 @@ export default function EventItem({ event }) {
             {imgs.map((src, i) => (
               <img
                 key={i}
-                src={src}
+                src={toAbsolute(src)} // CHANGED
                 alt={event.title || "Exhibition image"}
                 className="h-40 w-auto rounded-lg object-cover flex-shrink-0"
                 loading="lazy"

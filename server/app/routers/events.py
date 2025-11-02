@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.db.models import Event, EventImage
-from app.schemas.events import EventCreate, EventUpdate, EventOut
+from app.schemas.events import EventCreate, EventUpdate, EventOut, EventImageOut
 from app.core.security import require_admin, require_csrf
 
 router = APIRouter(prefix="/api/events", tags=["events"])
@@ -32,6 +32,25 @@ def _event_out(ev: Event, images: Iterable[EventImage]) -> EventOut:
         details=ev.details,
         images=[img.image_path for img in sorted(images, key=lambda x: (x.sort_order, x.id))],
     )
+
+def _remove_media_file(image_path: str) -> None:
+    """
+    Best-effort deletion of a file under app/media for paths like '/media/<name.ext>'.
+    Won't raise if the file doesn't exist.
+    """
+    if not image_path:
+        return
+    # Accept '/media/abc.png' or 'media/abc.png'
+    fname = os.path.basename(image_path)
+    if not fname:
+        return
+    fs_path = os.path.join(MEDIA_DIR, fname)
+    try:
+        if os.path.exists(fs_path):
+            os.remove(fs_path)
+    except Exception:
+        # Swallow errors so API delete still succeeds
+        pass
 
 @router.get("", response_model=list[EventOut])
 def list_events(
@@ -112,6 +131,13 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     ev = db.get(Event, event_id)
     if not ev:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    # Manually delete image files on disk before DB delete
+    imgs = db.query(EventImage).filter_by(event_id=event_id).all()
+    for im in imgs:
+        _remove_media_file(im.image_path)
+        db.delete(im)  # ensure row is removed even if ON DELETE CASCADE is not configured
+
     db.delete(ev)
     db.commit()
     return None
@@ -120,19 +146,23 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
 
 @router.get(
     "/{event_id}/images",
-    response_model=list[str],
-    dependencies=[],
+    response_model=list[EventImageOut],
 )
 def list_images(event_id: int, db: Session = Depends(get_db)):
     ev = db.get(Event, event_id)
     if not ev:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    imgs = db.query(EventImage).filter_by(event_id=event_id).order_by(EventImage.sort_order.asc(), EventImage.id.asc()).all()
-    return [im.image_path for im in imgs]
+    imgs = (
+        db.query(EventImage)
+        .filter_by(event_id=event_id)
+        .order_by(EventImage.sort_order.asc(), EventImage.id.asc())
+        .all()
+    )
+    return imgs
 
 @router.post(
     "/{event_id}/images",
-    response_model=list[str],
+    response_model=list[EventImageOut],
     dependencies=[Depends(require_admin), Depends(require_csrf)],
 )
 def upload_images(
@@ -157,7 +187,9 @@ def upload_images(
         db.add(im)
         saved.append(im)
     db.commit()
-    return [im.image_path for im in saved]
+    for im in saved:
+        db.refresh(im)
+    return saved
 
 @router.delete(
     "/{event_id}/images/{image_id}",
@@ -168,6 +200,10 @@ def delete_image(event_id: int, image_id: int, db: Session = Depends(get_db)):
     im = db.get(EventImage, image_id)
     if not im or im.event_id != event_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    # Remove file from disk (best-effort)
+    _remove_media_file(im.image_path)
+
     db.delete(im)
     db.commit()
     return None

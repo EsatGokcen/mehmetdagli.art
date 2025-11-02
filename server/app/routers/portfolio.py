@@ -2,6 +2,7 @@ import os
 import uuid
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+
 from app.db.session import SessionLocal
 from app.db.models import Artwork
 from app.schemas.portfolio import ArtworkCreate, ArtworkUpdate, ArtworkOut
@@ -9,12 +10,32 @@ from app.core.security import require_admin, require_csrf
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
+MEDIA_DIR = "app/media"
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+def _remove_media_file(image_path: str) -> None:
+    """
+    Best-effort deletion of a file under app/media for paths like '/media/<name.ext>'.
+    Won't raise if the file doesn't exist.
+    """
+    if not image_path:
+        return
+    fname = os.path.basename(image_path)
+    if not fname:
+        return
+    fs_path = os.path.join(MEDIA_DIR, fname)
+    try:
+        if os.path.exists(fs_path):
+            os.remove(fs_path)
+    except Exception:
+        # Don't fail API call if filesystem delete has an issue
+        pass
 
 @router.get("", response_model=list[ArtworkOut])
 def list_items(
@@ -78,12 +99,16 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     item = db.get(Artwork, item_id)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    # remove image from disk if present
+    if item.image_path:
+        _remove_media_file(item.image_path)
+
     db.delete(item)
     db.commit()
     return None
 
-# Image upload
-MEDIA_DIR = "app/media"
+# ------- Image upload/replace -------
 
 @router.post(
     "/{item_id}/image",
@@ -91,22 +116,30 @@ MEDIA_DIR = "app/media"
     dependencies=[Depends(require_admin), Depends(require_csrf)],
 )
 def upload_image(item_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    os.makedirs(MEDIA_DIR, exist_ok=True)
-
-    original = file.filename or ""
-    ext = os.path.splitext(original)[1].lower() or ".jpg"
-
-    fname = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join(MEDIA_DIR, fname)
-
-    with open(path, "wb") as f:
-        f.write(file.file.read())
-
     item = db.get(Artwork, item_id)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
+    os.makedirs(MEDIA_DIR, exist_ok=True)
+
+    original = file.filename or ""
+    ext = os.path.splitext(original)[1].lower() or ".jpg"
+    fname = f"{uuid.uuid4().hex}{ext}"
+    path = os.path.join(MEDIA_DIR, fname)
+
+    # write new file to disk
+    with open(path, "wb") as f:
+        f.write(file.file.read())
+
+    # swap image in DB
+    old_path = item.image_path
     item.image_path = f"/media/{fname}"
+    db.add(item)
     db.commit()
     db.refresh(item)
+
+    # now safely remove the old file (best-effort)
+    if old_path:
+        _remove_media_file(old_path)
+
     return item

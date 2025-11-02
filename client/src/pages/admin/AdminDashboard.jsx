@@ -15,6 +15,8 @@ import {
   deleteEventImage,
 } from "../../lib/api.js";
 
+const toAbsolute = (p) => (p?.startsWith("http") ? p : `${API_BASE}${p || ""}`);
+
 /* --- UI helpers --- */
 const cls = (...xs) => xs.filter(Boolean).join(" ");
 const Surface = ({ className = "", children }) => (
@@ -95,6 +97,7 @@ export default function AdminDashboard() {
     end_date: "",
     details: "",
     published: true,
+    files: [], // NEW: multiple photos to upload after create
   });
   const [eLoading, setELoading] = useState(false);
   const [eErr, setEErr] = useState("");
@@ -107,9 +110,15 @@ export default function AdminDashboard() {
   /* Editing modals */
   const [editArtwork, setEditArtwork] = useState(null);
   const [editEvent, setEditEvent] = useState(null);
+
+  // For Edit Event modal: images with optional IDs (for delete)
+  const [editEventImages, setEditEventImages] = useState([]); // [{id?, src}]
+  const [imgBusy, setImgBusy] = useState(false);
+
   const closeEdits = () => {
     setEditArtwork(null);
     setEditEvent(null);
+    setEditEventImages([]);
   };
 
   /** ----------------- Helpers ----------------- */
@@ -151,6 +160,39 @@ export default function AdminDashboard() {
     loadAll();
   }, [loadAll]);
 
+  /** ----------------- Event images API (robust to different shapes) ----------------- */
+  async function listEventImagesRaw(eventId) {
+    const res = await fetch(`${API_BASE}/api/events/${eventId}/images`, {
+      credentials: "include",
+    });
+    if (res.status === 401) throw new Error(AUTH_EXPIRED);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function refreshEditEventImages(eventId) {
+    try {
+      setImgBusy(true);
+      const data = await listEventImagesRaw(eventId);
+      // Accept both shapes:
+      // 1) [" /media/a.jpg", "/media/b.jpg" ]
+      // 2) [ { id: 1, image_path: "/media/a.jpg" }, ... ]
+      const normalized = Array.isArray(data)
+        ? data.map((item) =>
+            typeof item === "string"
+              ? { id: null, src: item }
+              : { id: item.id ?? null, src: item.image_path ?? "" }
+          )
+        : [];
+      setEditEventImages(normalized);
+    } catch (e) {
+      guardAuth(e, "Görseller alınamadı.");
+      setEditEventImages([]);
+    } finally {
+      setImgBusy(false);
+    }
+  }
+
   /** ----------------- Handlers ----------------- */
   function onAChange(e) {
     const { name, value, type, checked, files } = e.target;
@@ -161,9 +203,12 @@ export default function AdminDashboard() {
   }
 
   function onEChange(e) {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type, checked, files } = e.target;
     if (type === "checkbox") setEForm((f) => ({ ...f, [name]: checked }));
-    else setEForm((f) => ({ ...f, [name]: value }));
+    else if (type === "file") {
+      const list = files ? Array.from(files) : [];
+      setEForm((f) => ({ ...f, files: list }));
+    } else setEForm((f) => ({ ...f, [name]: value }));
   }
 
   async function createArtwork(ev) {
@@ -244,7 +289,13 @@ export default function AdminDashboard() {
         details: eForm.details.trim() || null,
         published: !!eForm.published,
       };
-      await post("/api/events", payload);
+      const created = await post("/api/events", payload);
+
+      // Upload selected images (multi) after event creation
+      if (created?.id && Array.isArray(eForm.files) && eForm.files.length) {
+        await uploadEventImages(created.id, eForm.files);
+      }
+
       setEForm({
         title: "",
         location: "",
@@ -252,6 +303,7 @@ export default function AdminDashboard() {
         end_date: "",
         details: "",
         published: true,
+        files: [],
       });
       loadAll();
     } catch (err) {
@@ -483,53 +535,17 @@ export default function AdminDashboard() {
                 placeholder="Bitiş"
               />
             </div>
-            {/* --- Exhibition images --- */}
-            {Array.isArray(ev.images) && ev.images.length > 0 && (
-              <div className="mt-3">
-                <div className="flex gap-2 overflow-x-auto p-1">
-                  {ev.images.map((src, idx) => (
-                    <img
-                      key={idx}
-                      src={src}
-                      alt="exhibition image"
-                      className="h-20 w-auto rounded object-cover flex-shrink-0"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="mt-3 flex flex-col sm:flex-row items-start gap-2">
-              <label className="btn btn-sm">
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async (e) => {
-                    if (!e.target.files || e.target.files.length === 0) return;
-                    try {
-                      await uploadEventImages(
-                        ev.id,
-                        Array.from(e.target.files)
-                      );
-                      // refresh events after upload
-                      const elist = await fetchEvents({
-                        offset: 0,
-                        limit: 200,
-                      });
-                      setEvents(Array.isArray(elist) ? elist : []);
-                    } catch (err) {
-                      setErr(err.message || "Resim yükleme başarısız.");
-                    } finally {
-                      e.target.value = "";
-                    }
-                  }}
-                />
-                Fotoğraf Yükle
-              </label>
-            </div>
+
+            {/* Choose files (multi) just like the Artwork form */}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              name="files"
+              className="file-input file-input-bordered w-full"
+              onChange={onEChange}
+            />
+
             <textarea
               name="details"
               value={eForm.details}
@@ -663,7 +679,9 @@ export default function AdminDashboard() {
                       <td className="align-middle text-right whitespace-nowrap w-[164px]">
                         <button
                           className="btn btn-sm me-2"
-                          onClick={() => setEditEvent(ev)}
+                          onClick={async () => {
+                            setEditEvent(ev);
+                          }}
                         >
                           Düzenle
                         </button>
@@ -794,8 +812,16 @@ export default function AdminDashboard() {
       {/* ---- Event Edit Modal ---- */}
       {editEvent && (
         <div className="modal modal-open">
-          <div className="modal-box max-w-2xl">
+          <div className="modal-box max-w-3xl">
             <h3 className="font-semibold text-lg mb-3">Etkinlik Düzenle</h3>
+
+            {/* Load images when the modal opens */}
+            <ModalImagesLoader
+              eventId={editEvent.id}
+              onLoad={(items) => setEditEventImages(items)}
+              loader={refreshEditEventImages}
+            />
+
             <div className="grid gap-3">
               <input
                 className="input input-bordered"
@@ -850,12 +876,116 @@ export default function AdminDashboard() {
                 />
                 <span className="label-text">Yayınla</span>
               </label>
+
+              {/* --- Existing images with delete buttons --- */}
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium">Görseller</h4>
+                  {imgBusy && (
+                    <span className="text-xs opacity-60">Yükleniyor…</span>
+                  )}
+                </div>
+                {editEventImages.length ? (
+                  <div className="flex gap-2 overflow-x-auto p-1">
+                    {editEventImages.map((im, idx) => (
+                      <div
+                        key={(im.id ?? "noid") + "-" + idx}
+                        className="relative flex-shrink-0"
+                      >
+                        <img
+                          src={toAbsolute(im.src)}
+                          alt="exhibition image"
+                          className="h-24 w-auto rounded object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        {im.id != null ? (
+                          <button
+                            type="button"
+                            className="btn btn-xs absolute top-1 right-1"
+                            onClick={async () => {
+                              if (
+                                !confirm(
+                                  "Bu görseli silmek istediğinize emin misiniz?"
+                                )
+                              )
+                                return;
+                              try {
+                                setImgBusy(true);
+                                await deleteEventImage(editEvent.id, im.id);
+                                await refreshEditEventImages(editEvent.id);
+                                await loadAll();
+                              } catch (err) {
+                                guardAuth(err, "Görsel silinemedi.");
+                              } finally {
+                                setImgBusy(false);
+                              }
+                            }}
+                          >
+                            Sil
+                          </button>
+                        ) : (
+                          <span className="absolute top-1 right-1 text-[10px] bg-white/80 rounded px-1">
+                            (id yok)
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="opacity-60 text-sm">
+                    Bu etkinlikte görsel yok.
+                  </div>
+                )}
+              </div>
+
+              {/* --- Add more images (multi-upload) --- */}
+              <div className="mt-2 grid md:grid-cols-[1fr_auto] items-center gap-3">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  className="file-input file-input-bordered w-full"
+                  onChange={async (e) => {
+                    const files = e.target.files
+                      ? Array.from(e.target.files)
+                      : [];
+                    if (!files.length) return;
+                    try {
+                      setImgBusy(true);
+                      await uploadEventImages(editEvent.id, files);
+                      await refreshEditEventImages(editEvent.id);
+                      await loadAll();
+                    } catch (err) {
+                      guardAuth(err, "Görseller yüklenemedi.");
+                    } finally {
+                      setImgBusy(false);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => refreshEditEventImages(editEvent.id)}
+                >
+                  Görselleri Yenile
+                </button>
+              </div>
             </div>
+
             <div className="modal-action">
               <button className="btn" onClick={closeEdits}>
                 Kapat
               </button>
-              <button className="btn btn-primary" onClick={saveEditedEvent}>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  await saveEditedEvent();
+                  // Ensure images list on main table also reflects changes
+                  await loadAll();
+                }}
+              >
                 Kaydet
               </button>
             </div>
@@ -864,4 +994,17 @@ export default function AdminDashboard() {
       )}
     </div>
   );
+}
+
+/** Utility subcomponent: loads images when modal opens */
+function ModalImagesLoader({ eventId, onLoad, loader }) {
+  useEffect(() => {
+    if (!eventId) return;
+    (async () => {
+      const items = await loader(eventId);
+      if (Array.isArray(items)) onLoad(items);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
+  return null;
 }
