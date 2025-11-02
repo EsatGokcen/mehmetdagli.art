@@ -14,8 +14,8 @@ const dict = {
     layout: { brand: "Mehmet Dağlı" },
     nav: {
       home: "Ana Sayfa",
-      portfolio: "Portfolyo", // ✅ corrected
-      events: "Etkinlikler",
+      portfolio: "Portfolyo",
+      events: "Sergiler",
       bio: "Biyografi",
       contact: "İletişim",
       admin: "Yönetim",
@@ -35,11 +35,11 @@ const dict = {
       empty: "Henüz eser eklenmedi.",
     },
     portfolio: {
-      title: "Portfolyo", // ✅ corrected
+      title: "Portfolyo",
       empty: "Henüz eser bulunmuyor.",
     },
     events: {
-      title: "Etkinlikler",
+      title: "Sergiler",
       empty: "Yaklaşan etkinlik yok.",
     },
     bio: {
@@ -72,7 +72,7 @@ const dict = {
     nav: {
       home: "Home",
       portfolio: "Portfolio",
-      events: "Events",
+      events: "Exhibitions",
       bio: "Bio",
       contact: "Contact",
       admin: "Admin",
@@ -96,7 +96,7 @@ const dict = {
       empty: "No artworks yet.",
     },
     events: {
-      title: "Events",
+      title: "Exhibitions",
       empty: "No upcoming events.",
     },
     bio: {
@@ -129,7 +129,7 @@ const dict = {
     nav: {
       home: "Home",
       portfolio: "Portfolio",
-      events: "Eventi",
+      events: "Mostre",
       bio: "Bio",
       contact: "Contatto",
       admin: "Admin",
@@ -153,7 +153,7 @@ const dict = {
       empty: "Ancora nessuna opera.",
     },
     events: {
-      title: "Eventi",
+      title: "Mostre",
       empty: "Nessun evento imminente.",
     },
     bio: {

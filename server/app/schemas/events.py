@@ -18,6 +18,7 @@ class EventUpdate(EventBase):
 
 class EventOut(EventBase):
     id: int
+    images: list[str] = []  # URLs like /media/...
 
     class Config:
         from_attributes = True

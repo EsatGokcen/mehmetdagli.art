@@ -11,6 +11,8 @@ import {
   del,
   logout,
   AUTH_EXPIRED,
+  uploadEventImages,
+  deleteEventImage,
 } from "../../lib/api.js";
 
 /* --- UI helpers --- */
@@ -480,6 +482,53 @@ export default function AdminDashboard() {
                 type="date"
                 placeholder="Bitiş"
               />
+            </div>
+            {/* --- Exhibition images --- */}
+            {Array.isArray(ev.images) && ev.images.length > 0 && (
+              <div className="mt-3">
+                <div className="flex gap-2 overflow-x-auto p-1">
+                  {ev.images.map((src, idx) => (
+                    <img
+                      key={idx}
+                      src={src}
+                      alt="exhibition image"
+                      className="h-20 w-auto rounded object-cover flex-shrink-0"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mt-3 flex flex-col sm:flex-row items-start gap-2">
+              <label className="btn btn-sm">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    if (!e.target.files || e.target.files.length === 0) return;
+                    try {
+                      await uploadEventImages(
+                        ev.id,
+                        Array.from(e.target.files)
+                      );
+                      // refresh events after upload
+                      const elist = await fetchEvents({
+                        offset: 0,
+                        limit: 200,
+                      });
+                      setEvents(Array.isArray(elist) ? elist : []);
+                    } catch (err) {
+                      setErr(err.message || "Resim yükleme başarısız.");
+                    } finally {
+                      e.target.value = "";
+                    }
+                  }}
+                />
+                Fotoğraf Yükle
+              </label>
             </div>
             <textarea
               name="details"

@@ -138,4 +138,30 @@ export async function fetchInstagram(params = {}) {
   return get(`/api/social/instagram?limit=${limit}`);
 }
 
+export async function uploadEventImages(eventId, files) {
+  const csrf = await ensureCsrf();
+  const form = new FormData();
+  for (const f of files) form.append("files", f);
+  const res = await fetch(`${API_BASE}/api/events/${eventId}/images`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "x-csrf-token": csrf }, // do NOT set Content-Type; browser will
+    body: form,
+  });
+  return safe(res);
+}
+
+export async function deleteEventImage(eventId, imageId) {
+  const csrf = await ensureCsrf();
+  const res = await fetch(
+    `${API_BASE}/api/events/${eventId}/images/${imageId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      headers: { "x-csrf-token": csrf },
+    }
+  );
+  return safe(res);
+}
+
 export { API_BASE };
