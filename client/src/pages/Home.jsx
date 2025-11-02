@@ -6,12 +6,13 @@ import GalleryCard from "../components/GalleryCard.jsx";
 import SkeletonCard from "../components/SkeletonCard.jsx";
 import InstagramSection from "../components/InstagramSection.jsx";
 import ErrorAlert from "../components/ErrorAlert.jsx";
-import { useI18n } from "../i18n/index.jsx";
+import { LANGS, useI18n } from "../i18n/index.jsx";
 
 const cx = (...xs) => xs.filter(Boolean).join(" ");
+const toAbsolute = (p) => (p?.startsWith("http") ? p : `${API_BASE}${p || ""}`);
 
 export default function Home() {
-  const { t } = useI18n();
+  const { t, lang, setLang } = useI18n();
 
   // -------- Data --------
   const [artworks, setArtworks] = useState([]);
@@ -49,13 +50,13 @@ export default function Home() {
     return `${API_BASE}/media/${a.image_path}`;
   };
 
-  // -------- Selected Works: continuous auto-scroll with manual control --------
+  // ===== Selected Works: continuous auto-scroll with manual control =====
   const trackRef = useRef(null);
   const hoverPause = useRef(false);
-  const userPauseUntil = useRef(0); // timestamp until which auto scroll is paused
+  const userPauseUntil = useRef(0);
   const isDraggingRef = useRef(false);
 
-  // drag handlers (desktop + touch)
+  // drag handlers (desktop + touch) – artworks
   useEffect(() => {
     const el = trackRef.current;
     if (!el) return;
@@ -63,7 +64,7 @@ export default function Home() {
     let scrollLeft = 0;
 
     const kickPause = () => {
-      userPauseUntil.current = performance.now() + 1500; // pause auto for 1.5s after interaction
+      userPauseUntil.current = performance.now() + 1500;
     };
 
     const onDown = (e) => {
@@ -112,7 +113,7 @@ export default function Home() {
     };
   }, [artworks.length]);
 
-  // rAF loop: triple list for robust bi-directional looping
+  // rAF loop: triple list for robust bi-directional looping – artworks
   useEffect(() => {
     const el = trackRef.current;
     if (!el || artworks.length === 0) return;
@@ -127,12 +128,11 @@ export default function Home() {
       const one = el.scrollWidth / 3;
       el.scrollLeft = one;
     };
-    // Wait for layout
     requestAnimationFrame(setCenter);
 
     let rafId;
     let last = performance.now();
-    const pxPerSec = 60; // <-- faster auto scroll; tweak to taste
+    const pxPerSec = 60;
 
     const tick = (now) => {
       const dt = now - last;
@@ -159,45 +159,47 @@ export default function Home() {
   const onMouseEnterTrack = () => (hoverPause.current = true);
   const onMouseLeaveTrack = () => (hoverPause.current = false);
 
-  // -------- Events horizontal scroll helpers --------
+  // ===== Exhibitions =====
   const evTrackRef = useRef(null);
-  const scrollEvents = (dir) => {
-    const el = evTrackRef.current;
-    if (!el) return;
-    const step = Math.round(el.clientWidth * 0.8);
-    const next = el.scrollLeft + (dir === "right" ? step : -step);
-    el.scrollTo({ left: next, behavior: "smooth" });
-  };
+  const evHoverPause = useRef(false);
+  const evUserPauseUntil = useRef(0);
+  const evDraggingRef = useRef(false);
 
-  // drag to scroll (events)
+  // drag handlers – events
   useEffect(() => {
     const el = evTrackRef.current;
     if (!el) return;
-    let isDown = false;
     let startX = 0;
     let scrollLeft = 0;
 
+    const kickPause = () => {
+      evUserPauseUntil.current = performance.now() + 1500;
+    };
+
     const onDown = (e) => {
-      isDown = true;
+      evDraggingRef.current = true;
       startX = (e.touches ? e.touches[0].pageX : e.pageX) - el.offsetLeft;
       scrollLeft = el.scrollLeft;
       el.classList.add("cursor-grabbing");
+      kickPause();
     };
     const onLeave = () => {
-      isDown = false;
+      evDraggingRef.current = false;
       el.classList.remove("cursor-grabbing");
     };
     const onUp = () => {
-      isDown = false;
+      evDraggingRef.current = false;
       el.classList.remove("cursor-grabbing");
     };
     const onMove = (e) => {
-      if (!isDown) return;
+      if (!evDraggingRef.current) return;
       e.preventDefault();
       const x = (e.touches ? e.touches[0].pageX : e.pageX) - el.offsetLeft;
       const walk = (x - startX) * 1.2;
       el.scrollLeft = scrollLeft - walk;
+      kickPause();
     };
+    const onWheel = () => kickPause();
 
     el.addEventListener("mousedown", onDown);
     el.addEventListener("mouseleave", onLeave);
@@ -206,6 +208,7 @@ export default function Home() {
     el.addEventListener("touchstart", onDown, { passive: true });
     el.addEventListener("touchend", onUp, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("wheel", onWheel, { passive: true });
 
     return () => {
       el.removeEventListener("mousedown", onDown);
@@ -215,8 +218,53 @@ export default function Home() {
       el.removeEventListener("touchstart", onDown);
       el.removeEventListener("touchend", onUp);
       el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("wheel", onWheel);
     };
   }, [events.length]);
+
+  // rAF loop – events
+  useEffect(() => {
+    const el = evTrackRef.current;
+    if (!el || events.length === 0) return;
+
+    const prefersReduced = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    )?.matches;
+    if (prefersReduced) return;
+
+    const setCenter = () => {
+      const one = el.scrollWidth / 3;
+      el.scrollLeft = one;
+    };
+    requestAnimationFrame(setCenter);
+
+    let rafId;
+    let last = performance.now();
+    const pxPerSec = 60;
+
+    const tick = (now) => {
+      const dt = now - last;
+      last = now;
+
+      const pausedByHover = evHoverPause.current;
+      const pausedByUser = now < evUserPauseUntil.current;
+      if (!pausedByHover && !pausedByUser && !document.hidden) {
+        el.scrollLeft += (pxPerSec * dt) / 1000;
+      }
+
+      const one = el.scrollWidth / 3;
+      if (el.scrollLeft >= one * 2) el.scrollLeft -= one;
+      else if (el.scrollLeft <= 0) el.scrollLeft += one;
+
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [events.length]);
+
+  const onMouseEnterEvents = () => (evHoverPause.current = true);
+  const onMouseLeaveEvents = () => (evHoverPause.current = false);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-16">
@@ -234,7 +282,7 @@ export default function Home() {
       {/* ---------- HERO / WELCOME ---------- */}
       <section className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-white">
         <div className="grid md:grid-cols-2 gap-6 items-center p-6 md:p-10 relative">
-          {/* Animated shine overlay (visible and angled) */}
+          {/* Animated shine overlay */}
           <div aria-hidden className="pointer-events-none absolute inset-0">
             <div
               className="
@@ -273,8 +321,8 @@ export default function Home() {
           <div className="relative z-10">
             <div className="rounded-2xl overflow-hidden shadow-[0_18px_48px_rgba(0,0,0,0.25)]">
               <img
-                src="/keci4.png"
-                alt="Artwork preview"
+                src="/mehmet1.png"
+                alt="Artist preview"
                 className="w-full h-[300px] md:h-[360px] object-cover scale-100 hover:scale-[1.03] transition-transform duration-700 ease-out"
                 loading="eager"
                 decoding="async"
@@ -284,7 +332,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- EVENTS ---------- */}
+      {/* ---------- EXHIBITIONS  ---------- */}
       <section>
         <SectionHeader title={t("home.eventsTitle") || "Events"} />
         <ErrorAlert message={evtState.error} onRetry={load} />
@@ -296,62 +344,93 @@ export default function Home() {
             ))}
           </div>
         ) : events.length ? (
-          <div className="relative">
-            <button
-              className="btn btn-circle absolute -left-3 top-1/2 -translate-y-1/2 z-10"
-              onClick={() => scrollEvents("left")}
-              aria-label="scroll left"
-            >
-              ‹
-            </button>
-            <button
-              className="btn btn-circle absolute -right-3 top-1/2 -translate-y-1/2 z-10"
-              onClick={() => scrollEvents("right")}
-              aria-label="scroll right"
-            >
-              ›
-            </button>
+          (() => {
+            const looped = [...events, ...events, ...events]; // triple copy for smooth looping
+            return (
+              <div
+                ref={evTrackRef}
+                onMouseEnter={onMouseEnterEvents}
+                onMouseLeave={onMouseLeaveEvents}
+                className="flex gap-4 overflow-x-auto pb-2 px-1"
+              >
+                {looped.map((ev, idx) => {
+                  const key = `${ev.id}-${idx % events.length}-${Math.floor(
+                    idx / events.length
+                  )}`;
+                  const images = Array.isArray(ev.images) ? ev.images : [];
 
-            <div
-              ref={evTrackRef}
-              className={cx(
-                "flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1",
-                "pb-2"
-              )}
-            >
-              {events.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="snap-start shrink-0 min-w-[85%] sm:min-w-[60%] lg:min-w-[45%]"
-                >
-                  <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_8px_28px_rgba(0,0,0,0.15)] hover:shadow-[0_16px_44px_rgba(0,0,0,0.22)] transition-shadow">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <h3 className="text-xl font-semibold text-neutral-900">
-                        {ev.title}
-                      </h3>
-                      {ev.published === false ? (
-                        <span className="badge">Taslak</span>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 text-neutral-600">
-                      <div className="text-sm">{ev.location || "—"}</div>
-                      <div className="text-sm">
-                        <span>{ev.start_date || "—"}</span>
-                        {ev.end_date ? (
-                          <span>{` → ${ev.end_date}`}</span>
+                  return (
+                    <div
+                      key={key}
+                      className="
+                  shrink-0
+                  min-w-[78%] sm:min-w-[58%] lg:min-w-[48%] xl:min-w-[42%]
+                  max-w-[420px]
+                "
+                    >
+                      <article
+                        className="
+                    rounded-2xl border border-neutral-200 bg-white p-5
+                    shadow-[0_8px_28px_rgba(0,0,0,0.15)]
+                    hover:shadow-[0_16px_44px_rgba(0,0,0,0.22)]
+                    transition-shadow
+                    text-center
+                  "
+                      >
+                        {/* Title / Meta */}
+                        <div className="space-y-1">
+                          <h3 className="text-xl font-semibold text-neutral-900">
+                            {ev.title}
+                          </h3>
+                          {ev.published === false ? (
+                            <span className="badge mx-auto">Taslak</span>
+                          ) : null}
+                          <div className="text-neutral-600 text-sm">
+                            <div>{ev.location || "—"}</div>
+                            <div>
+                              <span>{ev.start_date || "—"}</span>
+                              {ev.end_date ? (
+                                <span>{` → ${ev.end_date}`}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Inner image strip (horizontal scroll) */}
+                        {images.length > 0 && (
+                          <div className="mt-4 -mx-1">
+                            <div className="flex gap-2 overflow-x-auto px-1 pb-1 justify-center">
+                              {images.map((p, i) => (
+                                <img
+                                  key={i}
+                                  src={
+                                    p?.startsWith("http")
+                                      ? p
+                                      : `${API_BASE}${p || ""}`
+                                  }
+                                  alt={`${ev.title} image ${i + 1}`}
+                                  className="h-[180px] w-auto rounded-lg object-cover flex-shrink-0"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Description */}
+                        {ev.details ? (
+                          <p className="mt-3 text-sm text-neutral-700 line-clamp-3">
+                            {ev.details}
+                          </p>
                         ) : null}
-                      </div>
+                      </article>
                     </div>
-                    {ev.details ? (
-                      <p className="mt-3 text-sm text-neutral-700 line-clamp-3">
-                        {ev.details}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                  );
+                })}
+              </div>
+            );
+          })()
         ) : (
           <div className="opacity-70">
             {t("home.eventsEmpty") || "No upcoming events."}
@@ -359,7 +438,7 @@ export default function Home() {
         )}
       </section>
 
-      {/* ---------- SELECTED WORKS (continuous auto-scroll with manual control) ---------- */}
+      {/* ---------- SELECTED WORKS ---------- */}
       <section>
         <SectionHeader title={t("home.portfolioTitle") || "Selected Works"} />
         <ErrorAlert message={artState.error} onRetry={load} />
@@ -373,7 +452,6 @@ export default function Home() {
         ) : artworks.length ? (
           <>
             {(() => {
-              // triple copy for robust looping in both directions
               const looped = [...artworks, ...artworks, ...artworks];
               return (
                 <div

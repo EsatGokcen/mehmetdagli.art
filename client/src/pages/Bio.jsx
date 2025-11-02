@@ -28,8 +28,8 @@ export default function Bio() {
   const S = getBioStrings(lang);
 
   // images in /public — per your request we swapped them:
-  const heroArtwork = "/keci4.png"; // right image in hero
-  const widePortrait = "/mehmet1.png"; // long banner — ensure head is visible
+  const heroArtwork = "/mehmet1.png"; // right image in hero
+  const widePortrait = "/keci4.png"; // long banner — ensure head is visible
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">

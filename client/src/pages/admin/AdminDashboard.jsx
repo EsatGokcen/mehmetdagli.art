@@ -426,7 +426,7 @@ export default function AdminDashboard() {
               placeholder="Başlık"
             />
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <input
                 name="price"
                 value={aForm.price}
@@ -593,39 +593,41 @@ export default function AdminDashboard() {
           </h3>
           {artworks.length ? (
             <div className="overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Başlık</th>
-                    <th>Fiyat</th>
-                    <th>Durum</th>
-                    <th className="text-right">İşlem</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {artworks.map((a) => (
-                    <tr key={a.id} className="hover">
-                      <td>{a.title}</td>
-                      <td>{a.price ?? "—"}</td>
-                      <td>{a.available ? "Satışta" : "Satışta değil"}</td>
-                      <td className="text-right">
-                        <button
-                          className="btn btn-sm me-2"
-                          onClick={() => setEditArtwork(a)}
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => removeArtwork(a.id)}
-                        >
-                          Sil
-                        </button>
-                      </td>
+              <div className="max-h-[520px] overflow-y-auto pr-1">
+                <table className="table w-full">
+                  <thead className="sticky top-0 bg-white z-10">
+                    <tr>
+                      <th>Başlık</th>
+                      <th>Fiyat</th>
+                      <th>Durum</th>
+                      <th className="text-right">İşlem</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {artworks.map((a) => (
+                      <tr key={a.id} className="hover">
+                        <td>{a.title}</td>
+                        <td>{a.price ?? "—"}</td>
+                        <td>{a.available ? "Satışta" : "Satışta değil"}</td>
+                        <td className="text-right whitespace-nowrap">
+                          <button
+                            className="btn btn-sm me-2"
+                            onClick={() => setEditArtwork(a)}
+                          >
+                            Düzenle
+                          </button>
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => removeArtwork(a.id)}
+                          >
+                            Sil
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <div className="opacity-60">Henüz eser yok.</div>
@@ -639,63 +641,65 @@ export default function AdminDashboard() {
           </h3>
           {events.length ? (
             <div className="overflow-x-auto">
-              <table className="table table-auto w-full">
-                <thead>
-                  <tr>
-                    <th>Başlık</th>
-                    <th>Mekan</th>
-                    <th>Tarih</th>
-                    <th className="text-right">İşlem</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.map((ev) => (
-                    <tr key={ev.id} className="hover">
-                      {/* Başlık – modest width; allow wrap */}
-                      <td className="align-middle whitespace-normal break-words max-w-[180px]">
-                        {ev.title}
-                      </td>
-
-                      {/* Mekan – a bit narrower so Tarih can breathe */}
-                      <td className="align-middle whitespace-normal break-words max-w-[200px]">
-                        {ev.location ?? "—"}
-                      </td>
-
-                      {/* Tarih – wider + no wrap per date line */}
-                      <td className="align-middle max-w-[240px]">
-                        <div className="flex flex-col">
-                          <span className="whitespace-nowrap">
-                            {ev.start_date ?? "—"}
-                          </span>
-                          {ev.end_date ? (
-                            <span className="whitespace-nowrap">
-                              {ev.end_date}
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-
-                      {/* İşlem – fixed compact width, no wrap */}
-                      <td className="align-middle text-right whitespace-nowrap w-[164px]">
-                        <button
-                          className="btn btn-sm me-2"
-                          onClick={async () => {
-                            setEditEvent(ev);
-                          }}
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => removeEvent(ev.id)}
-                        >
-                          Sil
-                        </button>
-                      </td>
+              <div className="max-h-[520px] overflow-y-auto pr-1">
+                <table className="table table-auto w-full">
+                  <thead className="sticky top-0 bg-white z-10">
+                    <tr>
+                      <th>Başlık</th>
+                      <th>Mekan</th>
+                      <th>Tarih</th>
+                      <th className="text-right">İşlem</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {events.map((ev) => (
+                      <tr key={ev.id} className="hover">
+                        {/* Başlık – modest width; allow wrap */}
+                        <td className="align-middle whitespace-normal break-words max-w-[180px]">
+                          {ev.title}
+                        </td>
+
+                        {/* Mekan – a bit narrower so Tarih can breathe */}
+                        <td className="align-middle whitespace-normal break-words max-w-[200px]">
+                          {ev.location ?? "—"}
+                        </td>
+
+                        {/* Tarih – wider + no wrap per date line */}
+                        <td className="align-middle max-w-[240px]">
+                          <div className="flex flex-col">
+                            <span className="whitespace-nowrap">
+                              {ev.start_date ?? "—"}
+                            </span>
+                            {ev.end_date ? (
+                              <span className="whitespace-nowrap">
+                                {ev.end_date}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+
+                        {/* İşlem – fixed compact width, no wrap */}
+                        <td className="align-middle text-right whitespace-nowrap w-[164px]">
+                          <button
+                            className="btn btn-sm me-2"
+                            onClick={async () => {
+                              setEditEvent(ev);
+                            }}
+                          >
+                            Düzenle
+                          </button>
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => removeEvent(ev.id)}
+                          >
+                            Sil
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <div className="opacity-60">Henüz etkinlik yok.</div>

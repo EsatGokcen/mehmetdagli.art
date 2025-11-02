@@ -5,10 +5,11 @@ import React, {
   useState,
   useEffect,
 } from "react";
+import home from "./home";
 
 export const LANGS = ["tr", "en", "it"];
 
-const dict = {
+const baseDict = {
   tr: {
     langName: "Türkçe",
     layout: { brand: "Mehmet Dağlı" },
@@ -29,19 +30,8 @@ const dict = {
       seeAll: "Tümünü gör",
       empty: "İçerik bulunamadı.",
     },
-    home: {
-      title: "En Son Çalışmalar",
-      seeFullPortfolio: "Tüm portfolyoyu gör →",
-      empty: "Henüz eser eklenmedi.",
-    },
-    portfolio: {
-      title: "Portfolyo",
-      empty: "Henüz eser bulunmuyor.",
-    },
-    events: {
-      title: "Sergiler",
-      empty: "Yaklaşan etkinlik yok.",
-    },
+    portfolio: { title: "Portfolyo", empty: "Henüz eser bulunmuyor." },
+    events: { title: "Sergiler", empty: "Yaklaşan etkinlik yok." },
     bio: {
       title: "Biyografi",
       sections: {
@@ -86,19 +76,8 @@ const dict = {
       seeAll: "See all",
       empty: "Nothing to show yet.",
     },
-    home: {
-      title: "Recent Works",
-      seeFullPortfolio: "See full portfolio →",
-      empty: "No artworks yet.",
-    },
-    portfolio: {
-      title: "Portfolio",
-      empty: "No artworks yet.",
-    },
-    events: {
-      title: "Exhibitions",
-      empty: "No upcoming events.",
-    },
+    portfolio: { title: "Portfolio", empty: "No artworks yet." },
+    events: { title: "Exhibitions", empty: "No upcoming events." },
     bio: {
       title: "Biography",
       sections: {
@@ -143,19 +122,8 @@ const dict = {
       seeAll: "Vedi tutto",
       empty: "Niente da mostrare.",
     },
-    home: {
-      title: "Opere Recenti",
-      seeFullPortfolio: "Vedi tutto il portfolio →",
-      empty: "Ancora nessuna opera.",
-    },
-    portfolio: {
-      title: "Portfolio",
-      empty: "Ancora nessuna opera.",
-    },
-    events: {
-      title: "Mostre",
-      empty: "Nessun evento imminente.",
-    },
+    portfolio: { title: "Portfolio", empty: "Ancora nessuna opera." },
+    events: { title: "Mostre", empty: "Nessun evento imminente." },
     bio: {
       title: "Biografia",
       sections: {
@@ -188,17 +156,25 @@ export function I18nProvider({ children, defaultLang = "tr" }) {
 
   useEffect(() => {
     const saved = localStorage.getItem("md.lang");
-    if (saved && dict[saved]) setLang(saved);
+    if (saved && baseDict[saved]) setLang(saved);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("md.lang", lang);
   }, [lang]);
 
+  // Merge base dict with module dicts (like `home`)
   const value = useMemo(() => {
-    const bag = dict[lang] || dict[defaultLang];
+    const modules = [home]; // add more modules later if needed
+    const merged = { ...(baseDict[lang] || baseDict[defaultLang]) };
+    // merge per-language modules shallowly
+    for (const mod of modules) {
+      if (mod?.[lang]) {
+        Object.assign(merged, mod[lang]);
+      }
+    }
     const t = (path) =>
-      path.split(".").reduce((acc, k) => (acc ? acc[k] : undefined), bag);
+      path.split(".").reduce((acc, k) => (acc ? acc[k] : undefined), merged);
     return { lang, setLang, t };
   }, [lang, defaultLang]);
 
