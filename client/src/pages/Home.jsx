@@ -297,7 +297,7 @@ export default function Home() {
 
           {/* Text */}
           <div className="space-y-4 relative z-10">
-            <h1 className="text-3xl md:text-5xl font-semibold tracking-tight text-neutral-900">
+            <h1 className="text-3xl md:text-5xl font-sans tracking-tight text-neutral-900">
               {t("home.welcomeTitle") || "Welcome to the world of Mehmet Dağlı"}
             </h1>
             <p className="text-neutral-600 max-w-prose">

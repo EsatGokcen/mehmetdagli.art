@@ -143,3 +143,23 @@ def upload_image(item_id: int, file: UploadFile = File(...), db: Session = Depen
         _remove_media_file(old_path)
 
     return item
+
+@router.delete(
+    "/{item_id}/image",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin), Depends(require_csrf)],
+)
+def delete_image(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(Artwork, item_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    # Best-effort remove the file from disk
+    if item.image_path:
+        _remove_media_file(item.image_path)
+
+    # Clear DB field
+    item.image_path = None
+    db.add(item)
+    db.commit()
+    return None

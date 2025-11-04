@@ -393,6 +393,20 @@ export default function AdminDashboard() {
     if (!res.ok) throw new Error((await res.text()) || "Görsel yüklenemedi.");
   }
 
+  async function deleteArtworkImage(artworkId) {
+    const csrf = await refreshCsrf();
+    const res = await fetch(`${API_BASE}/api/portfolio/${artworkId}/image`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: { "x-csrf-token": csrf },
+    });
+    if (res.status === 401) {
+      navigate("/admin/login", { replace: true });
+      return;
+    }
+    if (!res.ok) throw new Error((await res.text()) || "Görsel silinemedi.");
+  }
+
   /** ----------------- UI ----------------- */
   return (
     <div className="container mx-auto px-4 py-8 md:py-10">
@@ -587,6 +601,7 @@ export default function AdminDashboard() {
       {/* Lists */}
       <div className="mt-10 grid lg:grid-cols-2 gap-6">
         {/* --------- ESERLER --------- */}
+
         <Surface className="p-6 md:p-8">
           <h3 className="text-lg font-semibold text-neutral-900 mb-3">
             Eserler
@@ -604,27 +619,45 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {artworks.map((a) => (
-                      <tr key={a.id} className="hover">
-                        <td>{a.title}</td>
-                        <td>{a.price ?? "—"}</td>
-                        <td>{a.available ? "Satışta" : "Satışta değil"}</td>
-                        <td className="text-right whitespace-nowrap">
-                          <button
-                            className="btn btn-sm me-2"
-                            onClick={() => setEditArtwork(a)}
-                          >
-                            Düzenle
-                          </button>
-                          <button
-                            className="btn btn-sm"
-                            onClick={() => removeArtwork(a.id)}
-                          >
-                            Sil
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {artworks.map((a) => {
+                      const imgSrc = a.image_path
+                        ? a.image_path.startsWith("/media")
+                          ? `${API_BASE}${a.image_path}`
+                          : `${API_BASE}/media/${a.image_path}`
+                        : null;
+                      return (
+                        <tr key={a.id} className="hover">
+                          {/* Title */}
+                          <td className="align-middle whitespace-normal break-words max-w-[220px]">
+                            {a.title}
+                          </td>
+
+                          {/* Price */}
+                          <td className="align-middle">{a.price ?? "—"}</td>
+
+                          {/* Availability */}
+                          <td className="align-middle">
+                            {a.available ? "Satışta" : "Satışta değil"}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="align-middle text-right whitespace-nowrap">
+                            <button
+                              className="btn btn-sm me-2"
+                              onClick={() => setEditArtwork(a)}
+                            >
+                              Düzenle
+                            </button>
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => removeArtwork(a.id)}
+                            >
+                              Sil
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -712,103 +745,173 @@ export default function AdminDashboard() {
         <div className="modal modal-open">
           <div className="modal-box max-w-2xl">
             <h3 className="font-semibold text-lg mb-3">Eser Düzenle</h3>
-            <div className="grid gap-3">
-              <input
-                className="input input-bordered"
-                value={editArtwork.title || ""}
-                onChange={(e) =>
-                  setEditArtwork({ ...editArtwork, title: e.target.value })
-                }
-                placeholder="Başlık"
-              />
-              <div className="grid md:grid-cols-3 gap-3">
-                <input
-                  className="input input-bordered"
-                  value={editArtwork.medium || ""}
-                  onChange={(e) =>
-                    setEditArtwork({ ...editArtwork, medium: e.target.value })
-                  }
-                  placeholder="Teknik"
-                />
-                <input
-                  className="input input-bordered"
-                  type="number"
-                  value={editArtwork.price ?? ""}
-                  onChange={(e) =>
-                    setEditArtwork({ ...editArtwork, price: e.target.value })
-                  }
-                  placeholder="Fiyat"
-                />
-                <label className="label cursor-pointer justify-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="checkbox"
-                    checked={!!editArtwork.available}
-                    onChange={(e) =>
-                      setEditArtwork({
-                        ...editArtwork,
-                        available: e.target.checked,
-                      })
-                    }
-                  />
-                  <span className="label-text">Satışta</span>
-                </label>
-              </div>
-              <textarea
-                className="textarea textarea-bordered"
-                value={editArtwork.description || ""}
-                onChange={(e) =>
-                  setEditArtwork({
-                    ...editArtwork,
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Açıklama"
-              />
 
-              {/* Change image */}
-              <div className="mt-2 grid md:grid-cols-[1fr_auto] items-center gap-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="file-input file-input-bordered w-full"
-                  onChange={(e) =>
-                    setEditArtwork({
-                      ...editArtwork,
-                      _newFile: e.target.files?.[0] || null,
-                    })
-                  }
-                />
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={async () => {
-                    try {
-                      await uploadArtworkImage(
-                        editArtwork.id,
-                        editArtwork._newFile
-                      );
-                      alert("Görsel güncellendi.");
-                      setEditArtwork({ ...editArtwork, _newFile: null });
-                      await loadAll();
-                    } catch (err) {
-                      guardAuth(err, "Görsel yüklenemedi.");
-                    }
-                  }}
-                  disabled={!editArtwork._newFile}
-                >
-                  Görseli Yükle
-                </button>
-              </div>
-            </div>
-            <div className="modal-action">
-              <button className="btn" onClick={closeEdits}>
-                Kapat
-              </button>
-              <button className="btn btn-primary" onClick={saveEditedArtwork}>
-                Kaydet
-              </button>
-            </div>
+            {/* Helper to refresh this single artwork in the modal */}
+            {(() => {
+              const refreshOneArtwork = async () => {
+                const list = await fetchArtworks({ offset: 0, limit: 200 });
+                const safe = Array.isArray(list) ? list : [];
+                setArtworks(safe);
+                const updated = safe.find((x) => x.id === editArtwork.id);
+                if (updated) setEditArtwork(updated);
+              };
+
+              const currentImg = editArtwork?.image_path
+                ? editArtwork.image_path.startsWith("/media")
+                  ? `${API_BASE}${editArtwork.image_path}`
+                  : `${API_BASE}/media/${editArtwork.image_path}`
+                : null;
+
+              return (
+                <>
+                  <div className="grid gap-3">
+                    <input
+                      className="input input-bordered"
+                      value={editArtwork.title || ""}
+                      onChange={(e) =>
+                        setEditArtwork({
+                          ...editArtwork,
+                          title: e.target.value,
+                        })
+                      }
+                      placeholder="Başlık"
+                    />
+                    <div className="grid md:grid-cols-3 gap-3">
+                      <input
+                        className="input input-bordered"
+                        value={editArtwork.medium || ""}
+                        onChange={(e) =>
+                          setEditArtwork({
+                            ...editArtwork,
+                            medium: e.target.value,
+                          })
+                        }
+                        placeholder="Teknik"
+                      />
+                      <input
+                        className="input input-bordered"
+                        type="number"
+                        value={editArtwork.price ?? ""}
+                        onChange={(e) =>
+                          setEditArtwork({
+                            ...editArtwork,
+                            price: e.target.value,
+                          })
+                        }
+                        placeholder="Fiyat"
+                      />
+                      <label className="label cursor-pointer justify-start gap-3">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={!!editArtwork.available}
+                          onChange={(e) =>
+                            setEditArtwork({
+                              ...editArtwork,
+                              available: e.target.checked,
+                            })
+                          }
+                        />
+                        <span className="label-text">Satışta</span>
+                      </label>
+                    </div>
+                    <textarea
+                      className="textarea textarea-bordered"
+                      value={editArtwork.description || ""}
+                      onChange={(e) =>
+                        setEditArtwork({
+                          ...editArtwork,
+                          description: e.target.value,
+                        })
+                      }
+                      placeholder="Açıklama"
+                    />
+
+                    {/* Current image preview + delete */}
+                    <div className="mt-2">
+                      <label className="block font-medium mb-2">Görsel</label>
+                      {currentImg ? (
+                        <div className="relative inline-block">
+                          <img
+                            src={currentImg}
+                            alt={editArtwork.title || "artwork"}
+                            className="h-28 w-auto rounded-lg object-cover border border-neutral-200"
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-xs absolute top-1 right-1"
+                            onClick={async () => {
+                              if (
+                                !confirm(
+                                  "Bu görseli silmek istediğinize emin misiniz?"
+                                )
+                              )
+                                return;
+                              try {
+                                await deleteArtworkImage(editArtwork.id);
+                                await refreshOneArtwork();
+                              } catch (err) {
+                                guardAuth(err, "Görsel silinemedi.");
+                              }
+                            }}
+                          >
+                            Sil
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="opacity-60 text-sm">Görsel yok.</div>
+                      )}
+                    </div>
+
+                    {/* Upload new image */}
+                    <div className="mt-3 grid md:grid-cols-[1fr_auto_auto] items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="file-input file-input-bordered w-full"
+                        onChange={(e) =>
+                          setEditArtwork({
+                            ...editArtwork,
+                            _newFile: e.target.files?.[0] || null,
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={async () => {
+                          try {
+                            await uploadArtworkImage(
+                              editArtwork.id,
+                              editArtwork._newFile
+                            );
+                            setEditArtwork({ ...editArtwork, _newFile: null });
+                            await refreshOneArtwork();
+                          } catch (err) {
+                            guardAuth(err, "Görsel yüklenemedi.");
+                          }
+                        }}
+                        disabled={!editArtwork._newFile}
+                      >
+                        Görseli Yükle
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="modal-action">
+                    <button className="btn" onClick={closeEdits}>
+                      Kapat
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={saveEditedArtwork}
+                    >
+                      Kaydet
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
