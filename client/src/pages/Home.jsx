@@ -14,6 +14,9 @@ const toAbsolute = (p) => (p?.startsWith("http") ? p : `${API_BASE}${p || ""}`);
 export default function Home() {
   const { t, lang, setLang } = useI18n();
 
+  // -------- Local state --------
+  const [selectedArtwork, setSelectedArtwork] = useState(null);
+
   // -------- Data --------
   const [artworks, setArtworks] = useState([]);
   const [artState, setArtState] = useState({ loading: true, error: "" });
@@ -363,19 +366,19 @@ export default function Home() {
                     <div
                       key={key}
                       className="
-                  shrink-0
-                  min-w-[78%] sm:min-w-[58%] lg:min-w-[48%] xl:min-w-[42%]
-                  max-w-[420px]
-                "
+                        shrink-0
+                        min-w-[78%] sm:min-w-[58%] lg:min-w-[48%] xl:min-w-[42%]
+                        max-w-[420px]
+                      "
                     >
                       <article
                         className="
-                    rounded-2xl border border-neutral-200 bg-white p-5
-                    shadow-[0_8px_28px_rgba(0,0,0,0.15)]
-                    hover:shadow-[0_16px_44px_rgba(0,0,0,0.22)]
-                    transition-shadow
-                    text-center
-                  "
+                          rounded-2xl border border-neutral-200 bg-white p-5
+                          shadow-[0_8px_28px_rgba(0,0,0,0.15)]
+                          hover:shadow-[0_16px_44px_rgba(0,0,0,0.22)]
+                          transition-shadow
+                          text-center
+                        "
                       >
                         {/* Title / Meta */}
                         <div className="space-y-1">
@@ -403,11 +406,7 @@ export default function Home() {
                               {images.map((p, i) => (
                                 <img
                                   key={i}
-                                  src={
-                                    p?.startsWith("http")
-                                      ? p
-                                      : `${API_BASE}${p || ""}`
-                                  }
+                                  src={toAbsolute(p)}
                                   alt={`${ev.title} image ${i + 1}`}
                                   className="h-[180px] w-auto rounded-lg object-cover flex-shrink-0"
                                   loading="lazy"
@@ -452,6 +451,7 @@ export default function Home() {
         ) : artworks.length ? (
           <>
             {(() => {
+              // triple list for robust looping in both directions
               const looped = [...artworks, ...artworks, ...artworks];
               return (
                 <div
@@ -471,8 +471,9 @@ export default function Home() {
                         className="
                           shrink-0
                           min-w-[78%] sm:min-w-[58%] lg:min-w-[48%] xl:min-w-[42%]
-                          max-w-[420px]
+                          max-w-[420px] cursor-pointer
                         "
+                        onClick={() => setSelectedArtwork(a)}
                       >
                         <GalleryCard item={a} imageUrl={src} />
                       </div>
@@ -490,6 +491,81 @@ export default function Home() {
         ) : (
           <div className="opacity-70">
             {t("home.empty") || "No artworks yet."}
+          </div>
+        )}
+
+        {/* Inline Modal */}
+        {selectedArtwork && (
+          <div className="fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setSelectedArtwork(null)}
+            />
+            <div className="relative z-10 mx-auto mt-10 mb-10 max-w-5xl">
+              <div className="grid md:grid-cols-2 gap-6 rounded-2xl bg-white p-4 md:p-6 shadow-[0_18px_48px_rgba(0,0,0,0.25)]">
+                {/* Image */}
+                <div className="flex items-center justify-center">
+                  <img
+                    src={
+                      selectedArtwork.image_path?.startsWith("/media")
+                        ? `${API_BASE}${selectedArtwork.image_path}`
+                        : `${API_BASE}/media/${
+                            selectedArtwork.image_path || ""
+                          }`
+                    }
+                    alt={selectedArtwork.title || "artwork"}
+                    className="max-h-[70vh] w-auto object-contain rounded-lg"
+                  />
+                </div>
+
+                {/* Info — centered vertically & horizontally */}
+                <div className="flex items-center justify-center">
+                  <div className="text-center">
+                    <h3 className="text-2xl font-semibold text-neutral-900">
+                      {selectedArtwork.title || "Untitled"}
+                    </h3>
+                    {selectedArtwork.medium ? (
+                      <div className="mt-2 text-sm text-neutral-600">
+                        {selectedArtwork.medium}
+                      </div>
+                    ) : null}
+                    {selectedArtwork.price != null ? (
+                      <div className="mt-2 text-sm text-neutral-600">
+                        {new Intl.NumberFormat(undefined, {
+                          style: "currency",
+                          currency: "TRY",
+                        }).format(Number(selectedArtwork.price))}
+                      </div>
+                    ) : null}
+                    <div className="mt-2">
+                      <span className="badge badge-success">
+                        {selectedArtwork.available
+                          ? t("common.available")
+                          : t("common.notAvailable")}
+                      </span>
+                    </div>
+
+                    {selectedArtwork.description ? (
+                      <p className="mt-4 text-sm text-neutral-700 max-w-prose mx-auto">
+                        {selectedArtwork.description}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-6 flex items-center justify-center gap-3">
+                      <button className="btn btn-primary rounded-full">
+                        Satın Al
+                      </button>
+                      <button
+                        className="btn rounded-full"
+                        onClick={() => setSelectedArtwork(null)}
+                      >
+                        Kapat
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </section>

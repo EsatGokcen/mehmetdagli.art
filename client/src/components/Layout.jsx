@@ -8,20 +8,39 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {/* sticky header; visual tweaks only */}
+      {/* Sticky header */}
       <header className="navbar bg-base-100 shadow sticky top-0 z-40 backdrop-blur-sm">
         <div className="flex-1">
-          <Link to="/" className="btn btn-ghost text-xl">
-            <span className="inline-flex items-center gap-3">
+          {/* Brand: bigger logo + underline animation */}
+          <Link
+            to="/"
+            className="group inline-flex items-center gap-3 px-2 py-2 rounded-md focus:outline-none"
+            aria-label={t("layout.brand") || "Mehmet Dağlı"}
+          >
+            <span className="relative inline-flex items-center gap-3">
               {/* Logo from /public */}
               <img
                 src="/mehmet-logo.png"
                 alt="Mehmet Dağlı logo"
-                className="h-8 md:h-9 w-auto object-contain"
+                className="h-10 md:h-12 w-auto object-contain"
                 loading="eager"
                 decoding="async"
               />
-              {t("layout.brand") || "Mehmet Dağlı"}
+              <span className="text-xl md:text-2xl font-semibold tracking-tight text-neutral-900">
+                {t("layout.brand") || "Mehmet Dağlı"}
+              </span>
+
+              {/* Underline: animates across logo + title */}
+              <span
+                aria-hidden
+                className="
+                  pointer-events-none
+                  absolute -bottom-1 left-0 h-[2px] w-0
+                  bg-neutral-900/90
+                  transition-[width] duration-300 ease-out
+                  group-hover:w-full group-focus-visible:w-full
+                "
+              />
             </span>
           </Link>
         </div>
